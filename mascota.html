@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8"> <title>Tu Compañero Existencial</title> <script src="https://cdn.tailwindcss.com"></script> <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        /* CSS sin cambios. Ya es funcional y correcto. */
+        body { font-family: 'Press Start 2P', cursive; background-color: #f0f9ff; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; color: #1e3a8a; }
+        .tamagotchi-container { background-color: #ffffff; border: 8px solid #93c5fd; border-radius: 20px; padding: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.1); text-align: center; width: 350px; max-width: 95%; position: relative; }
+        .pet-display-container { width: 150px; height: 150px; margin: 10px auto; background-color: #e0f2fe; border: 4px solid #bfdbfe; border-radius: 50%; display: flex; align-items: center; justify-content: center; position: relative; transition: all 0.3s ease; }
+        .pet-emoticon { font-size: 50px; color: #1e3a8a; transition: all 0.4s; }
+        .stats div { margin-bottom: 10px; font-size: 14px; }
+        .stat-bar-container { background-color: #e5e7eb; border-radius: 10px; height: 20px; overflow: hidden; border: 2px solid #9ca3af; margin-top: 4px; }
+        .stat-bar { background-color: #4ade80; height: 100%; width: 100%; border-radius: 8px 0 0 8px; transition: width 0.5s ease-in-out; }
+        .stat-bar.low { background-color: #f87171; } .stat-bar.medium { background-color: #fbbf24; }
+        .actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 1rem; }
+        .actions button { background-color: #60a5fa; color: white; border: none; padding: 12px; border-radius: 10px; cursor: pointer; font-family: 'Press Start 2P', cursive; font-size: 10px; transition: all 0.2s; box-shadow: 0 4px #2563eb; }
+        .actions button:disabled { background-color: #94a3b8; box-shadow: 0 4px #64748b; cursor: not-allowed; opacity: 0.6; }
+        .action-grid-item { width: calc(50% - 4px); }
+        .action-full-width { width: 100%; margin-top: 8px; }
+        .message-box { margin-top: 15px; padding: 15px; background-color: #fef3c7; border: 2px solid #fcd34d; border-radius: 10px; min-height: 50px; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #b45309; transition: background-color 0.3s; }
+        .flash-success { background-color: #4ade80 !important; color: white !important; }
+        .hidden { display: none; }
+        .modal { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(240, 249, 255, 0.98); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 20px; border-radius: 20px; }
+        .modal-header { width: 100%; flex-shrink: 0; text-align: center; }
+        .modal input { color:black; font-family: 'Press Start 2P', cursive; padding:10px; border-radius:8px; text-align:center; margin-bottom: 10px; width: 90%; font-size: 12px; border: 2px solid #93c5fd; }
+        .modal-buttons { width: 100%; flex-shrink: 0; }
+        #taskList { list-style: none; padding: 5px; margin: 10px 0; width: 95%; background-color: #e0f2fe; border: 2px solid #93c5fd; border-radius: 10px; overflow-y: auto; text-align: left; flex-grow: 1; }
+        #taskList li { padding: 8px; font-size: 11px; border-bottom: 1px solid #bfdbfe; cursor: pointer; }
+        #taskList li:hover { background-color: #bfdbfe; }
+        .active-quest { margin-top: 15px; padding: 10px; background-color: #fffbeb; border: 2px dashed #f59e0b; border-radius: 10px; font-size: 12px; color: #b45309; }
+        .modal-notification { color: #dc2626; font-size: 11px; height: 14px; margin-top: 5px; transition: opacity 0.3s; }
+    </style>
+</head>
+<body>
+    <div id="gameContainer" class="tamagotchi-container">
+        <div id="startScreen" class="start-screen-popup"> <h2 class="text-xl font-bold mb-4">¡Bienvenido!</h2> <input type="text" id="petNameInput" placeholder="Dale un nombre"> <button id="startGameButton" class="actions button !text-base mt-4">Empezar</button> </div>
+        <div id="mainGame" class="hidden"> <h1 id="petNameDisplay" class="text-2xl font-bold mb-1">Mascota</h1> <div id="ageDisplay" class="text-xs mb-2">Edad: 0 días</div> <div id="petDisplayContainer" class="pet-display-container"><div id="petEmoticon" class="pet-emoticon"></div></div> <div class="stats"> <div><span>Hambre:</span> <span id="hungerStat"></span>%</div><div class="stat-bar-container"><div id="hungerBar" class="stat-bar"></div></div> <div><span>Felicidad:</span> <span id="happinessStat"></span>%</div><div class="stat-bar-container"><div id="happinessBar" class="stat-bar"></div></div> <div><span>Limpieza:</span> <span id="cleanlinessStat"></span>%</div><div class="stat-bar-container"><div id="cleanlinessBar" class="stat-bar"></div></div> <div><span>Energía:</span> <span id="energyStat"></span>%</div><div class="stat-bar-container"><div id="energyBar" class="stat-bar"></div></div> </div> <div id="activeQuestDisplay" class="active-quest hidden"></div> <div id="actionsContainer" class="actions"> <button id="feedButton" class="action-grid-item">Alimentar</button><button id="playButton" class="action-grid-item">Jugar</button> <button id="cleanButton" class="action-grid-item">Limpiar</button><button id="sleepButton" class="action-grid-item">A Dormir</button> <button id="questButton" class="action-full-width bg-amber-500 shadow-amber-700 hover:bg-amber-600">Killer Pendiente</button> <button id="releaseButton" class="action-full-width bg-red-500 shadow-red-700 hover:bg-red-600">Liberar Mascota</button> </div> <div id="messageBox" class="message-box"></div> </div>
+        <div id="questModal" class="modal hidden"> <div class="modal-header"> <h2 class="text-lg font-bold mb-2">Define tu Misión</h2> <input type="text" id="questDescriptionInput" placeholder="Describe el pendiente a matar..."> <input type="number" id="questTimeInput" placeholder="Tiempo (minutos)"> <input type="number" id="questRewardInput" placeholder="Recompensa en PV"> </div> <div class="modal-buttons actions !gap-2 !mt-0"> <button id="startQuestButton" class="!bg-green-500 !shadow-green-700 hover:!bg-green-600">¡A la Batalla!</button> <button id="addTaskButton" class="!bg-blue-500 !shadow-blue-700 hover:!bg-blue-600">Guardar Tarea</button> </div> <div id="questNotification" class="modal-notification"></div> <h3 class="text-xs my-2 font-normal">Doble clic para cargar tarea:</h3> <ul id="taskList"></ul> <button id="cancelQuestModalButton" class="actions button !bg-gray-400 !shadow-gray-600 hover:!bg-gray-500 mt-auto">Retirada</button> </div>
+    </div>
+    
+    <script>
+        // --- Obtención de Elementos del DOM ---
+        // (Sin cambios)
+        const questNotification = document.getElementById('questNotification'); const taskList = document.getElementById('taskList'); const addTaskButton = document.getElementById('addTaskButton'); const mainGameDiv = document.getElementById('mainGame'), startScreenDiv = document.getElementById('startScreen'); const petDisplayContainer = document.getElementById('petDisplayContainer'), petEmoticonElement = document.getElementById('petEmoticon'); const hungerStatElement = document.getElementById('hungerStat'), happinessStatElement = document.getElementById('happinessStat'), cleanlinessStatElement = document.getElementById('cleanlinessStat'), energyStatElement = document.getElementById('energyStat'); const hungerBarElement = document.getElementById('hungerBar'), happinessBarElement = document.getElementById('happinessBar'), cleanlinessBarElement = document.getElementById('cleanlinessBar'), energyBarElement = document.getElementById('energyBar'); const feedButton = document.getElementById('feedButton'), playButton = document.getElementById('playButton'), cleanButton = document.getElementById('cleanButton'), sleepButton = document.getElementById('sleepButton'), releaseButton = document.getElementById('releaseButton'); const messageBoxElement = document.getElementById('messageBox'), petNameDisplayElement = document.getElementById('petNameDisplay'), petNameInputElement = document.getElementById('petNameInput'), startGameButton = document.getElementById('startGameButton'); const ageDisplay = document.getElementById('ageDisplay'); const actionsContainer = document.getElementById('actionsContainer'); const questButton = document.getElementById('questButton'), questModal = document.getElementById('questModal'), questDescriptionInput = document.getElementById('questDescriptionInput'), questTimeInput = document.getElementById('questTimeInput'), questRewardInput = document.getElementById('questRewardInput'), startQuestButton = document.getElementById('startQuestButton'), cancelQuestModalButton = document.getElementById('cancelQuestModalButton'), activeQuestDisplay = document.getElementById('activeQuestDisplay');
+
+        // --- Variables de Estado y Constantes ---
+        // (Sin cambios)
+        let petName, hunger, happiness, cleanliness, energy, isAlive, isSleeping, gameInterval, startTime; let isOnQuest = false, questEndTime, questInterval, questRewardAmount = 0, questStartTime; let plannedQuest = null;
+        const petStates = { neutral: '🙂', happy: '😀', joyful: '😆', sad: '😟', very_sad:'😭', hungry: '😋', dirty: '🤢', playing: '🥳', sleeping:'😴', dead: '💀', eating: '😊', worried: '😥' }; const MAX_STAT = 100, MIN_STAT = 0; const DECAY_INTERVAL = 2000; const DECAY_RATE_AWAKE = 3; const ENERGY_DECAY_AWAKE = 2; const DECAY_RATE_SLEEP = 1.5; const ENERGY_RECOVERY_SLEEP = 4; const INTERACTION_VALUE = 30, LOW_STAT_THRESHOLD = 40;
+
+        // --- Lógica del Gestor de Tareas ---
+        function renderTaskList() { const tasks = JSON.parse(localStorage.getItem('taskTemplates') || '[]'); taskList.innerHTML = ''; tasks.forEach(task => { const li = document.createElement('li'); li.textContent = task.description; li.addEventListener('dblclick', () => { questDescriptionInput.value = task.description; questTimeInput.value = task.defaultTime; questRewardInput.value = task.defaultReward; }); taskList.appendChild(li); }); }
+        
+        // CORRECCIÓN: El botón "Guardar Tarea" ahora actualiza si ya existe.
+        addTaskButton.addEventListener('click', () => {
+            const description = questDescriptionInput.value.trim();
+            if (!description) { showQuestNotification("Describe la tarea para guardarla."); return; }
+            let tasks = JSON.parse(localStorage.getItem('taskTemplates') || '[]');
+            const taskIndex = tasks.findIndex(t => t.description === description);
+            const newTask = { description, defaultTime: questTimeInput.value, defaultReward: questRewardInput.value };
+
+            if (taskIndex > -1) { // Si la tarea ya existe, la actualiza
+                tasks[taskIndex] = newTask;
+            } else { // Si es nueva, la añade al principio
+                tasks.unshift(newTask);
+            }
+            localStorage.setItem('taskTemplates', JSON.stringify(tasks));
+            renderTaskList();
+            showQuestNotification("¡Tarea guardada/actualizada!");
+        });
+        
+        // CORRECCIÓN: Notificación en lugar de alert.
+        function showQuestNotification(message) {
+            questNotification.textContent = message;
+            setTimeout(() => { questNotification.textContent = ''; }, 3000);
+        }
+
+        // --- Lógica de Botones y Misiones ---
+        startQuestButton.addEventListener('click', () => {
+            const description = questDescriptionInput.value.trim();
+            const time = parseInt(questTimeInput.value);
+            const reward = parseInt(questRewardInput.value);
+            if (!description || !time || time <= 0 || !reward || reward <= 0) {
+                // Se usa la notificación en lugar del alert.
+                showQuestNotification("Define misión, tiempo y recompensa válidos.");
+                return;
+            }
+            if (isSleeping) {
+                plannedQuest = { description, time, reward };
+                showMessage("Misión planificada. ¡Comenzará cuando despiertes!");
+                questModal.classList.add('hidden');
+                return;
+            }
+            executeQuest(description, time, reward);
+        });
+
+        // CORRECCIÓN: La cuenta regresiva se mostrará correctamente.
+        function executeQuest(description, time, reward) {
+            questStartTime = new Date(); isOnQuest = true; questRewardAmount = reward;
+            questEndTime = new Date().getTime() + time * 60 * 1000;
+            questModal.classList.add('hidden');
+            [feedButton, playButton, cleanButton, sleepButton, questButton, releaseButton].forEach(b => b.style.display = 'none');
+            const completeButton = document.createElement('button'); completeButton.id = 'completeQuestButton'; completeButton.textContent = '¡Misión Cumplida!'; completeButton.className = 'action-full-width bg-green-500 shadow-green-700 hover:!bg-green-600'; completeButton.onclick = () => endQuest(true);
+            const abandonButton = document.createElement('button'); abandonButton.id = 'abandonQuestButton'; abandonButton.textContent = 'Abandonar Misión'; abandonButton.className = 'action-full-width bg-red-500 shadow-red-700 hover:!bg-red-600'; abandonButton.onclick = () => endQuest(false);
+            actionsContainer.appendChild(completeButton); actionsContainer.appendChild(abandonButton);
+            
+            // Se llama a updateQuestDisplay una vez para mostrar el estado inicial
+            updateQuestDisplay();
+            // Y luego se establece el intervalo para que siga actualizando.
+            questInterval = setInterval(updateQuestDisplay, 1000);
+        }
+        
+        sleepButton.addEventListener('click', () => { if (!isAlive) return; isSleeping = !isSleeping; if (isSleeping) { showMessage('A dormir... zZz'); sleepButton.textContent = "Despertar"; [feedButton, playButton, cleanButton, releaseButton].forEach(b => b.disabled = true); } else { wakeUp(true); } determineAndSetVisualState(); });
+        
+        // --- Lógica de Juego ---
+        function wakeUp(isManual) { if (!isSleeping && !isManual) return; isSleeping = false; if (isManual) { showMessage('¡Bostezo! Qué buena siesta.'); } else { showMessage('¡Mi estómago ruge! Me desperté del hambre.'); } sleepButton.textContent = "A Dormir"; [feedButton, playButton, cleanButton, releaseButton, questButton].forEach(b => b.disabled = false); if (plannedQuest) { showMessage(`¡A trabajar! Iniciando misión: ${plannedQuest.description}`); executeQuest(plannedQuest.description, plannedQuest.time, plannedQuest.reward); plannedQuest = null; } determineAndSetVisualState(); }
+        function gameLoop() { if(!isAlive) { clearInterval(gameInterval); return; } if (isOnQuest) { /* ... */ } else if (isSleeping) { hunger -= DECAY_RATE_SLEEP; happiness += 0.5; energy += ENERGY_RECOVERY_SLEEP; if (hunger < LOW_STAT_THRESHOLD) { wakeUp(false); } } else { hunger -= DECAY_RATE_AWAKE; happiness -= DECAY_RATE_AWAKE; cleanliness -= DECAY_RATE_AWAKE / 2; energy -= ENERGY_DECAY_AWAKE; determineAndSetVisualState(); } [hunger, happiness, cleanliness] = [hunger, happiness, cleanliness].map(s => Math.max(MIN_STAT, s)); energy = Math.min(MAX_STAT, Math.max(MIN_STAT, energy)); updateUI(); if (hunger <= 0 || happiness <= 0 || cleanliness <= 0 || energy <= 0) { let reason = 'por negligencia'; if (happiness <= 0) reason = 'de tristeza'; if (cleanliness <= 0) reason = 'por falta de higiene'; if (energy <= 0) reason = 'de agotamiento'; if (hunger <= 0) reason = 'de hambre'; endGame(false, reason); } }
+        
+        // CORRECCIÓN CRÍTICA: La función que actualiza las barras de estado.
+        function updateUI() { if (!isAlive) return; [hungerStatElement.textContent, happinessStatElement.textContent, cleanlinessStatElement.textContent, energyStatElement.textContent] = [Math.round(hunger), Math.round(happiness), Math.round(cleanliness), Math.round(energy)]; const updateBar = (bar, val) => { bar.style.width = `${Math.max(0, val)}%`; bar.classList.remove('low', 'medium'); if (val < LOW_STAT_THRESHOLD) { bar.classList.add('low'); } else if (val < 60) { bar.classList.add('medium'); } }; updateBar(hungerBarElement, hunger); updateBar(happinessBarElement, happiness); updateBar(cleanlinessBarElement, cleanliness); updateBar(energyBarElement, energy); const elapsedMilliseconds = new Date() - startTime; const petDays = Math.floor(elapsedMilliseconds / (1000 * 60)); ageDisplay.textContent = `Edad: ${petDays} días`; }
+        
+        // CORRECCIÓN: Se asegura que la descripción se lea del input correcto para el display.
+        function updateQuestDisplay() { const description = questDescriptionInput.value.trim(); const timeLeftMs = questEndTime - new Date().getTime(); if (timeLeftMs <= 0) { activeQuestDisplay.innerHTML = `¡TIEMPO AGOTADO!`; endQuest(false); return; } const minutes = Math.floor(timeLeftMs / 60000); const seconds = Math.floor((timeLeftMs % 60000) / 1000); activeQuestDisplay.innerHTML = `EN MISIÓN: ${description}<br>Tiempo restante: ${minutes}m ${seconds}s`; activeQuestDisplay.classList.remove('hidden'); }
+        
+        // MEJORA: Se elimina la tarea de la lista al completarla con éxito.
+        function endQuest(isCompleted) { isOnQuest = false; clearInterval(questInterval); activeQuestDisplay.classList.add('hidden'); document.getElementById('completeQuestButton')?.remove(); document.getElementById('abandonQuestButton')?.remove(); [feedButton, playButton, cleanButton, sleepButton, questButton, releaseButton].forEach(b => b.style.display = 'block'); const endTime = new Date(); const log = JSON.parse(localStorage.getItem('questLog') || '[]'); let pvGanados = 0; let status = ''; const description = questDescriptionInput.value.trim(); if (isCompleted) { pvGanados = questRewardAmount; status = 'Completada'; añadirPuntos('PV', pvGanados); showMessage(`¡MISIÓN CUMPLIDA! Ganas ${pvGanados} PV.`); messageBoxElement.classList.add('flash-success'); setTimeout(() => { messageBoxElement.classList.remove('flash-success'); }, 1000); happiness = Math.min(MAX_STAT, happiness + 20); let tasks = JSON.parse(localStorage.getItem('taskTemplates') || '[]'); tasks = tasks.filter(t => t.description !== description); localStorage.setItem('taskTemplates', JSON.stringify(tasks)); } else { pvGanados = Math.floor(questRewardAmount / 4); status = 'Fallida'; if (pvGanados > 0) { añadirPuntos('PV', pvGanados); showMessage(`Misión no completada... Pero ganas ${pvGanados} PV por tu esfuerzo.`); } else { showMessage('Misión no completada... El esfuerzo es la recompensa.'); } happiness -= 25; } const newQuestEntry = { type: 'quest', characterName: petName, description, status, rewardGained: pvGanados, startTime: questStartTime.toLocaleTimeString('es-CL'), endTime: endTime.toLocaleTimeString('es-CL'), timestamp: endTime.toISOString() }; log.unshift(newQuestEntry); localStorage.setItem('questLog', JSON.stringify(log)); determineAndSetVisualState(); }
+        
+        function endGame(isReleased, reason = 'ha vuelto al Nexo') { if(!isAlive) return; isAlive = false; clearInterval(gameInterval); if(questInterval) clearInterval(questInterval); questModal.classList.add('hidden'); const petLog = JSON.parse(localStorage.getItem('petLog') || '[]'); const petDays = Math.floor((new Date() - startTime) / (1000 * 60)); const petEntry = { type: 'pet', name: petName, daysLived: petDays, reason: isReleased ? 'Liberado con honor' : reason, timestamp: new Date().toISOString() }; petLog.unshift(petEntry); localStorage.setItem('petLog', JSON.stringify(petLog)); let finalMessage; if (isReleased) { const pvGanados = petDays; añadirPuntos('PV', pvGanados); finalMessage = `Liberaste a ${petName} tras ${petDays} días. Ganas ${pvGanados} PV.`; setPetVisual('joyful'); } else { finalMessage = `${petName} se ha ido al Nexo ${reason}.`; setPetVisual('dead'); } showMessage(finalMessage, !isReleased); actionsContainer.innerHTML = ''; const restartButton = document.createElement('button'); restartButton.textContent = 'Jugar de Nuevo'; restartButton.className = 'action-full-width bg-green-500 shadow-green-700 hover:bg-green-600'; restartButton.onclick = resetGame; actionsContainer.appendChild(restartButton); }
+        
+        // CORRECCIÓN: El reinicio ahora recarga la página para asegurar un estado 100% limpio.
+        function resetGame() { window.location.reload(); }
+        
+        // --- El resto de las funciones de utilidad y listeners ---
+        function startGame() { petName = petNameInputElement.value.trim() || "Mascota"; startScreenDiv.classList.add('hidden'); mainGameDiv.classList.remove('hidden'); showMessage(`¡Has invocado a ${petName}! Cuídalo bien.`); [hunger, happiness, cleanliness, energy] = [100, 100, 100, 100]; isAlive = true; isSleeping = false; startTime = new Date(); updateUI(); determineAndSetVisualState(); gameInterval = setInterval(gameLoop, DECAY_INTERVAL); }
+        function añadirPuntos(tipo, cantidad) { const claveStorage = tipo === 'PV' ? 'puntosDeVoluntad' : 'puntosDeAmor'; const puntosActuales = parseInt(localStorage.getItem(claveStorage) ?? '0'); const nuevosPuntos = puntosActuales + cantidad; localStorage.setItem(claveStorage, nuevosPuntos); }
+        startGameButton.addEventListener('click', startGame); releaseButton.addEventListener('click', () => { if(isAlive && !isSleeping) { endGame(true); } });
+        questButton.addEventListener('click', () => { renderTaskList(); questModal.classList.remove('hidden'); });
+         // --- ¡AQUÍ VA EL CÓDIGO QUE FALTA! ---
+        // Este listener se encarga de cerrar el modal al presionar "Retirada".
+        cancelQuestModalButton.addEventListener('click', () => {
+            questModal.classList.add('hidden');
+        });
+        feedButton.addEventListener('click', () => { if(isAlive && !isSleeping) { let food = parseInt(localStorage.getItem('comidaDisponible') ?? '0'); if (food > 0) { food--; localStorage.setItem('comidaDisponible', food); hunger = Math.min(MAX_STAT, hunger + INTERACTION_VALUE); happiness += 5; setPetVisual('eating', true); showMessage('¡Ñam, qué rico! Usaste 1 de comida.'); updateUI(); } else { showMessage('¡No tienes comida! Cómprala en el Panel.'); } } });
+        playButton.addEventListener('click', () => { if(isAlive && !isSleeping) { if(energy < 20) { showMessage('Estoy muy cansado para jugar...'); return; } happiness = Math.min(MAX_STAT, happiness + INTERACTION_VALUE); energy -= 15; cleanliness -= 10; setPetVisual('playing', true); const paGanados = 5; añadirPuntos('PA', paGanados); showMessage(`¡Qué divertido! Ganas ${paGanados} Puntos de Amor.`); updateUI(); } });
+        cleanButton.addEventListener('click', () => { if(isAlive && !isSleeping) { cleanliness = Math.min(MAX_STAT, cleanliness + INTERACTION_VALUE + 10); happiness += 3; setPetVisual('happy'); const paGanados = 10; añadirPuntos('PA', paGanados); showMessage(`¡Qué bien se siente estar limpio! Ganas ${paGanados} PA.`); updateUI(); } });
+        function showMessage(msg, isWarning = false) { messageBoxElement.textContent = msg; messageBoxElement.classList.toggle('game-over-message', isWarning); }
+        function determineAndSetVisualState() { if (!isAlive || isSleeping) { setPetVisual(isSleeping ? 'sleeping' : 'dead'); return; } let state = 'neutral'; if (isOnQuest) { state = 'worried'; } else if (energy < LOW_STAT_THRESHOLD) state = 'sad'; else if (hunger < LOW_STAT_THRESHOLD) state = 'hungry'; else if (cleanliness < LOW_STAT_THRESHOLD) state = 'dirty'; else if (happiness < LOW_STAT_THRESHOLD) state = happiness < 15 ? 'very_sad' : 'sad'; else if (happiness > 85) state = 'joyful'; else if (happiness > 70) state = 'happy'; setPetVisual(state); }
+        function setPetVisual(stateKey, temporary = false) { petEmoticonElement.textContent = petStates[stateKey] || petStates.neutral; if (temporary) { setTimeout(determineAndSetVisualState, 1500); } }
+    </script>
+</body>
+</html>
