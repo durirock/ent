@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Panel de Control</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        /* Estilos similares a los de la versión anterior para mantener la consistencia */
+        html, body { font-family: 'Press Start 2P', cursive; background-color: #1a1129; color: #f0e8ff; padding: 20px; }
+        .management-section { margin-top: 20px; padding: 20px; border: 4px dashed #6d28d9; border-radius: 15px; background-color: rgba(49, 32, 81, 0.5); text-align: center; }
+        h3 { font-size: 16px; margin-bottom: 15px; text-shadow: 0 0 5px #c4b5fd; }
+        button { background-color: #c4b5fd; color: #1a1129; border: none; padding: 10px 15px; border-radius: 10px; cursor: pointer; font-size: 12px; transition: all 0.2s; box-shadow: 0 4px #a78bfa; }
+        button:hover { background-color: #d8cfff; }
+        .resource-display { font-size: 18px; margin-bottom: 20px; line-height: 1.6; text-align: center; }
+        .pv-color { color: #FBBF24; font-weight: bold; }
+        .pa-color { color: #F472B6; font-weight: bold; }
+        .low-resource { color: #EF4444; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+        .notification { color: #EF4444; font-size: 12px; margin-top: 10px; height: 15px; transition: opacity 0.3s; }
+    </style>
+</head>
+<body>
+    <h1 class="text-2xl text-center">Panel de Control</h1>
+    <div class="resource-display">
+        Puntos de Voluntad: <span id="pvDisplay" class="pv-color">0</span> <br>
+        Puntos de Amor: <span id="paDisplay" class="pa-color">0</span>
+    </div>
+    <div class="management-section">
+        <h3>Almacén</h3>
+        <p class="mb-2">Comida disponible: <span id="foodDisplay">0</span></p>
+        <button id="buyFoodButton">Comprar 1 Comida (10 PV)</button>
+        <div id="almacenNotification" class="notification"></div>
+    </div>
+    <div class="management-section">
+        <h3>Nexo de Energías</h3>
+        <button id="exchangeButton">Convertir 20 PA en 5 PV</button>
+        <div id="nexoNotification" class="notification"></div>
+    </div>
+    <script>
+        // Este script es el que ya conoces para manejar los recursos.
+        const pvDisplay = document.getElementById('pvDisplay'); const paDisplay = document.getElementById('paDisplay'); const foodDisplay = document.getElementById('foodDisplay'); const buyFoodButton = document.getElementById('buyFoodButton'); const exchangeButton = document.getElementById('exchangeButton');
+        function showNotification(message, elementId) { const notificationElement = document.getElementById(elementId); notificationElement.textContent = message; notificationElement.style.opacity = 1; setTimeout(() => { notificationElement.style.opacity = 0; }, 3000); }
+        function updatePanelUI() { const pv = parseInt(localStorage.getItem('puntosDeVoluntad') ?? '0'); pvDisplay.textContent = pv; pvDisplay.classList.toggle('low-resource', pv < 10); paDisplay.textContent = localStorage.getItem('puntosDeAmor') ?? '0'; foodDisplay.textContent = localStorage.getItem('comidaDisponible') ?? '0'; }
+        buyFoodButton.addEventListener('click', () => { let pv = parseInt(localStorage.getItem('puntosDeVoluntad') ?? '0'); if (pv >= 10) { pv -= 10; let food = parseInt(localStorage.getItem('comidaDisponible') ?? '0'); food += 1; localStorage.setItem('puntosDeVoluntad', pv); localStorage.setItem('comidaDisponible', food); updatePanelUI(); } else { showNotification("No tienes suficientes PV.", "almacenNotification"); } });
+        exchangeButton.addEventListener('click', () => { let pa = parseInt(localStorage.getItem('puntosDeAmor') ?? '0'); if (pa >= 20) { pa -= 20; let pv = parseInt(localStorage.getItem('puntosDeVoluntad') ?? '0'); pv += 5; localStorage.setItem('puntosDeAmor', pa); localStorage.setItem('puntosDeVoluntad', pv); updatePanelUI(); } else { showNotification("No tienes suficientes PA.", "nexoNotification"); } });
+        window.addEventListener('storage', updatePanelUI); updatePanelUI();
+    </script>
+</body>
+</html>
