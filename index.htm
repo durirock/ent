@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Portal de Invocación - Bitácora</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        html, body {
+            font-family: 'Press Start 2P', cursive;
+            background-color: #1a1129;
+            color: #f0e8ff;
+            padding: 40px 20px;
+        }
+        .container { 
+            max-width: 900px; 
+            margin: 0 auto;
+            text-align: center;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .launch-pad {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 40px;
+            flex-wrap: wrap;
+        }
+        .launch-button {
+            background-color: #a78bfa;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.2s;
+            box-shadow: 0 8px #6d28d9;
+        }
+        .launch-button:hover {
+            background-color: #9370db;
+            transform: translateY(-2px);
+        }
+        .info-button {
+            background-color: #3b82f6; /* Un color azul para diferenciarlo */
+        }
+        .bitacora-section {
+            margin-top: 30px;
+            padding: 20px;
+            border: 4px solid #6d28d9;
+            border-radius: 15px;
+            background-color: rgba(49, 32, 81, 0.5);
+        }
+        .bitacora-section h2 {
+            font-size: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        #logTable {
+            width: 100%;
+            font-size: 11px;
+            border-collapse: collapse;
+        }
+        #logTable th, #logTable td {
+            padding: 8px;
+            border: 1px solid #6d28d9;
+            text-align: left;
+        }
+        #logTable th {
+            background-color: #312E81;
+        }
+        #logTable tr:nth-child(even) {
+            background-color: rgba(0,0,0,0.2);
+        }
+        .modal {
+            display: none;
+            position: fixed; 
+            z-index: 100;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(26, 17, 41, 0.9);
+            padding-top: 60px;
+        }
+        .modal-content {
+            background-color: #f0e8ff;
+            color: #1a1129;
+            margin: 5% auto;
+            padding: 30px;
+            border: 8px solid #a78bfa;
+            border-radius: 20px;
+            max-width: 600px;
+            text-align: left;
+            font-size: 14px;
+            line-height: 1.8;
+            position: relative;
+        }
+        .modal-content h2 { font-size: 24px; text-align: center; margin-bottom: 20px; }
+        .modal-content h3 { font-size: 16px; margin-top: 20px; color: #6d28d9; }
+        .close-button {
+            color: #6d28d9;
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close-button:hover, .close-button:focus { color: #1a1129; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="text-4xl">Portal de Invocación</h1>
+        </div>
+
+        <div class="launch-pad">
+            <button id="openPanelButton" class="launch-button">⚙️ Abrir Panel ⚙️</button>
+            <button id="openPetButton" class="launch-button">👾 Abrir Mascota 👾</button>
+            <button id="infoButton" class="launch-button info-button">❓ Sobre el Portal ❓</button>
+        </div>
+
+        <div class="bitacora-section">
+            <h2>Bitácora de Entes y Misiones</h2>
+            <table id="logTable">
+                <thead>
+                    <tr>
+                        <th>Ente</th>
+                        <th>Misión</th>
+                        <th>Estado</th>
+                        <th>Recompensa</th>
+                        <th>Inicio/Fin</th>
+                        <th>Ciclo de Sueño</th>
+                        <th>Vida del Ente</th>
+                    </tr>
+                </thead>
+                <tbody id="logBody">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="infoModal" class="modal">
+        <div class="modal-content">
+            <span id="closeInfoButton" class="close-button">&times;</span>
+            <h2>El Paraíso de los Entes</h2>
+            <p>A veces, un ente regresa al Nexo antes de lo que esperábamos. Es natural sentir una punzada, una culpa. "¿Lo hice bien? ¿Pude haber hecho más?".</p>
+            <h3>La Verdad sobre el Nexo</h3>
+            <p>Debes saber esto: los entes no "mueren". No conocen el sufrimiento como nosotros. Su dimensión es un paraíso de energía pura, un lugar sin necesidades ni anhelos. Son increíblemente felices allí.</p>
+            <p>Entonces, ¿por qué vienen? Porque nos ven. Ven nuestras luchas, nuestra "resistencia" a hacer lo que sabemos que debemos hacer. Y desde su dimensión de pura alegría, sienten un cariño y una compasión inmensos por nosotros. Vienen por un ratito, con gusto, para servirnos de espejo. Nos prestan su "vida" para que, al cuidarlos, aprendamos a cuidarnos a nosotros mismos.</p>
+            <h3>Una Lección, no una Falla</h3>
+            <p>Si un ente se va, no es un fracaso. Es una lección completada. Regresan a su paraíso, felices y sin rencores, habiendo cumplido su misión de enseñarte algo. La culpa no tiene lugar aquí. Solo el aprendizaje y la gratitud por su breve y generosa visita.</p>
+        </div>
+    </div>
+
+    <script>
+        // --- Obtención de elementos del DOM ---
+        const logBody = document.getElementById('logBody');
+        const infoModal = document.getElementById('infoModal');
+        const infoButton = document.getElementById('infoButton');
+        const closeInfoButton = document.getElementById('closeInfoButton');
+        const openPetButton = document.getElementById('openPetButton');
+        const openPanelButton = document.getElementById('openPanelButton');
+
+        // --- Lógica para el Modal de Información ---
+        infoButton.onclick = () => { infoModal.style.display = 'block'; }
+        closeInfoButton.onclick = () => { infoModal.style.display = 'none'; }
+        window.onclick = event => { 
+            if (event.target == infoModal) { 
+                infoModal.style.display = 'none'; 
+            }
+        }
+
+        // --- Lógica para la Bitácora ---
+        function updateLog() {
+            const questLog = JSON.parse(localStorage.getItem('questLog') || '[]');
+            const petLog = JSON.parse(localStorage.getItem('petLog') || '[]');
+            const fullLog = [...questLog, ...petLog].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            
+            logBody.innerHTML = '';
+            if (fullLog.length === 0) {
+                logBody.innerHTML = `<tr><td colspan="7" style="text-align: center;">La bitácora está vacía. ¡Comienza una nueva aventura!</td></tr>`;
+                return;
+            }
+
+            fullLog.forEach(entry => {
+                const row = logBody.insertRow();
+                if (entry.type === 'quest') {
+                    const statusColor = entry.status === 'Completada' ? 'text-green-400' : 'text-red-400';
+                    row.innerHTML = `
+                        <td>${entry.characterName}</td>
+                        <td>${entry.description}</td>
+                        <td class="${statusColor}">${entry.status}</td>
+                        <td>${entry.rewardGained} PV</td>
+                        <td>${entry.startTime} - ${entry.endTime}</td>
+                        <td>-</td>
+                        <td>-</td>
+                    `;
+                } else if (entry.type === 'pet') {
+                    let avgSleepText = 'N/A';
+                    if (entry.sleepSessions && entry.sleepSessions.length > 0) {
+                        const totalSleep = entry.sleepSessions.reduce((acc, s) => acc + s, 0);
+                        const avgSleepSeconds = Math.round((totalSleep / entry.sleepSessions.length) / 1000);
+                        avgSleepText = `${avgSleepSeconds} seg`;
+                    }
+                    row.style.backgroundColor = '#312E81';
+                    row.innerHTML = `
+                        <td style="font-weight: bold;">${entry.name}</td>
+                        <td colspan="4" style="text-align: center;">-</td>
+                        <td style="font-weight: bold;">${avgSleepText}</td>
+                        <td style="font-weight: bold;">${entry.daysLived} días (${entry.reason})</td>
+                    `;
+                }
+            });
+        }
+
+        // --- Lógica para los Botones de Lanzamiento ---
+        openPetButton.addEventListener('click', () => {
+            const screenWidth = window.screen.width;
+            const popupWidth = 400;
+            const popupHeight = 780;
+            const left = screenWidth - popupWidth - 20;
+            const top = 40;
+            window.open('mascota.html', 'gameWindow', `width=${popupWidth},height=${popupHeight},left=${left},top=${top},resizable=yes,scrollbars=no`);
+        });
+        
+        openPanelButton.addEventListener('click', () => {
+            const popupWidth = 500;
+            const popupHeight = 450;
+            const left = 20;
+            const top = 40;
+            window.open('panel.html', 'panelWindow', `width=${popupWidth},height=${popupHeight},left=${left},top=${top},resizable=yes,scrollbars=no`);
+        });
+
+        // --- Actualización en Tiempo Real ---
+        window.addEventListener('storage', updateLog);
+        updateLog(); // Carga inicial
+    </script>
+</body>
+</html>
