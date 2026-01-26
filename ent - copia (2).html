@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Entidad Cósmica - Control Total</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Fira+Code:wght@400&display=swap" rel="stylesheet">
+    <!-- Iconos para el botón de configuración -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- ========================================== -->
+    <!-- SHADERS PARAMETRIZABLES -->
+    <!-- ========================================== -->
+
+    <!-- Vertex Shader -->
+    <script type="x-shader/x-vertex" id="vertexshader">
+        varying vec2 vUv;
+        varying vec3 vNormal;
+        varying vec3 vViewPosition;
+        varying vec3 vPos;
+        
+        uniform float uTime;
+        uniform float uSpeed; // Nuevo parámetro de velocidad global
+
+        void main() {
+            vUv = uv;
+            vNormal = normalize(normalMatrix * normal);
+            vPos = position; 
+            
+            // Usamos uSpeed para controlar la velocidad de la respiración y ondas
+            float timeScale = uTime * uSpeed;
+
+            // Respiración
+            float breath = sin(timeScale * 0.3) * 0.08;
+            
+            // Ondulación
+            float wave = sin(timeScale * 0.4 + position.y * 0.4 + position.x * 0.4) * 0.05; 
+            
+            vec3 newPos = position + normal * (breath + wave);
+
+            vec4 mvPosition = modelViewMatrix * vec4(newPos, 1.0);
+            vViewPosition = -mvPosition.xyz; 
+            
+            gl_Position = projectionMatrix * mvPosition;
+        }
+    </script>
+
+    <!-- Fragment Shader -->
+    <script type="x-shader/x-fragment" id="fragmentshader">
+        uniform float uTime;
+        
+        // --- NUEVOS UNIFORMS DE CONFIGURACIÓN ---
+        uniform float uSpeed;           // Multiplicador de velocidad
+        uniform float uOpacityBase;     // Transparencia central
+        uniform float uFresnelIntensity;// Potencia del brillo de borde
+        uniform float uColorSaturation; // Intensidad del color
+
+        varying vec2 vUv;
+        varying vec3 vNormal;
+        varying vec3 vViewPosition;
+        varying vec3 vPos;
+
+        // --- RUIDO 3D ---
+        vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+        vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+        vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
+        vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
+
+        float snoise(vec3 v) {
+            const vec2  C = vec2(1.0/6.0, 1.0/3.0) ;
+            const vec4  D = vec4(0.0, 0.5, 1.0, 2.0);
+            vec3 i  = floor(v + dot(v, C.yyy) );
+            vec3 x0 = v - i + dot(i, C.xxx) ;
+            vec3 g = step(x0.yzx, x0.xyz);
+            vec3 l = 1.0 - g;
+            vec3 i1 = min( g.xyz, l.zxy );
+            vec3 i2 = max( g.xyz, l.zxy );
+            vec3 x1 = x0 - i1 + C.xxx;
+            vec3 x2 = x0 - i2 + C.yyy;
+            vec3 x3 = x0 - D.yyy;
+            i = mod289(i);
+            vec4 p = permute( permute( permute(
+                        i.z + vec4(0.0, i1.z, i2.z, 1.0 ))
+                    + i.y + vec4(0.0, i1.y, i2.y, 1.0 ))
+                    + i.x + vec4(0.0, i1.x, i2.x, 1.0 ));
+            float n_ = 0.142857142857;
+            vec3  ns = n_ * D.wyz - D.xzx;
+            vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
+            vec4 x_ = floor(j * ns.z);
+            vec4 y_ = floor(j - 7.0 * x_ );
+            vec4 x = x_ *ns.x + ns.yyyy;
+            vec4 y = y_ *ns.x + ns.yyyy;
+            vec4 h = 1.0 - abs(x) - abs(y);
+            vec4 b0 = vec4( x.xy, y.xy );
+            vec4 b1 = vec4( x.zw, y.zw );
+            vec4 s0 = floor(b0)*2.0 + 1.0;
+            vec4 s1 = floor(b1)*2.0 + 1.0;
+            vec4 sh = -step(h, vec4(0.0));
+            vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy ;
+            vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww ;
+            vec3 p0 = vec3(a0.xy,h.x);
+            vec3 p1 = vec3(a0.zw,h.y);
+            vec3 p2 = vec3(a1.xy,h.z);
+            vec3 p3 = vec3(a1.zw,h.w);
+            vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2, p2), dot(p3,p3)));
+            p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w;
+            vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
+            m = m * m;
+            return 42.0 * dot( m*m, vec4( dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3) ) );
+        }
+
+        vec3 spectralPalette(float t) {
+            vec3 a = vec3(0.5, 0.5, 0.5);
+            vec3 b = vec3(0.5, 0.5, 0.5);
+            vec3 c = vec3(1.0, 1.0, 1.0);
+            vec3 d = vec3(0.00, 0.33, 0.67);
+            vec3 col = a + b * cos(6.28318 * (c * t + d));
+            return col;
+        }
+
+        void main() {
+            vec3 viewDir = normalize(vViewPosition);
+            vec3 normal = normalize(vNormal);
+
+            // Afectamos el tiempo con uSpeed
+            float timeScale = uTime * uSpeed * 0.1; 
+
+            float noiseScale = 0.6;
+            
+            float n1 = snoise(vPos * noiseScale + timeScale);
+            float n2 = snoise(vPos * (noiseScale * 1.5) - timeScale * 1.2);
+
+            float fluid = n1 * 0.6 + n2 * 0.4;
+
+            // COLOR: Aplicamos saturación
+            vec3 baseColor = spectralPalette(fluid * 0.8 + timeScale * 0.5);
+            
+            // Truco simple de saturación: mezclar con gris (luminancia) o potenciar
+            // Aquí usamos potencia para controlar intensidad
+            vec3 color = pow(baseColor, vec3(2.0 - uColorSaturation)); 
+
+            // FRESNEL
+            float fresnelBase = pow(1.0 - abs(dot(normal, viewDir)), 2.5);
+            
+            // COLOR FINAL
+            vec3 finalColor = color + vec3(0.8) * fresnelBase;
+
+            // TRANSPARENCIA DINÁMICA
+            // uOpacityBase controla el centro, uFresnelIntensity controla cuánto suma el borde
+            float alpha = uOpacityBase + fresnelBase * uFresnelIntensity;
+
+            gl_FragColor = vec4(finalColor, alpha);
+        }
+    </script>
+
+    <style>
+        :root {
+            --primary-glow: #4DDBFF;
+            --secondary-glow: #A7F3D0;
+            --accent-glow: #FBBF24;
+            --bg-color: #02040a;
+            --panel-bg: rgba(5, 12, 25, 0.85);
+            --bar-bg: rgba(255, 255, 255, 0.1);
+        }
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            color: #EAEAEA;
+            font-family: 'Fira Code', monospace;
+            user-select: none;
+        }
+        #webgl-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; }
+        
+        /* --- UI PRINCIPAL --- */
+        #loader-ui {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 100;
+            text-align: center; transition: opacity 0.5s ease-out;
+        }
+        #loader-ui h1 {
+            font-family: 'Cinzel', serif; color: var(--primary-glow); text-shadow: 0 0 15px var(--primary-glow);
+            font-size: 2rem; margin-bottom: 2rem;
+        }
+        #load-button {
+            background: transparent; border: 2px solid var(--secondary-glow); color: var(--secondary-glow);
+            padding: 15px 30px; font-size: 1.2em; cursor: pointer; border-radius: 50px; transition: all 0.3s ease;
+            font-family: 'Fira Code', monospace;
+        }
+        #load-button:hover { background: var(--secondary-glow); color: var(--bg-color); box-shadow: 0 0 25px var(--secondary-glow); }
+        #file-input { display: none; }
+
+        /* --- HUD VITAL --- */
+        #hud-ui {
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); width: 340px;
+            padding: 20px; background: var(--panel-bg); border: 1px solid rgba(77, 219, 255, 0.3);
+            border-radius: 16px; backdrop-filter: blur(8px); box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
+            z-index: 50; opacity: 0; pointer-events: none; transition: opacity 1s ease-in;
+        }
+        #hud-ui.visible { opacity: 1; pointer-events: auto; }
+        #hud-ui h3 { font-family: 'Cinzel', serif; color: var(--primary-glow); text-align: center; margin: 0 0 15px 0; font-size: 1.3em; text-shadow: 0 0 10px rgba(77, 219, 255, 0.4); }
+        .stat-row-num { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 8px; color: #94a3b8; }
+        .val-pv { color: #fbbf24; text-shadow: 0 0 5px rgba(251, 191, 36, 0.5); font-weight: bold; }
+        .val-mu { color: #a7f3d0; text-shadow: 0 0 5px rgba(167, 243, 208, 0.5); font-weight: bold; }
+        .bar-group { margin-top: 12px; }
+        .bar-label { font-size: 0.75rem; color: #e2e8f0; margin-bottom: 4px; display: flex; justify-content: space-between; }
+        .progress-track { width: 100%; height: 10px; background: var(--bar-bg); border-radius: 20px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); position: relative; }
+        .progress-fill { height: 100%; width: 50%; transition: width 0.2s ease-out, background-color 0.5s ease; box-shadow: 0 0 10px currentColor; border-radius: 20px; }
+        #bar-happiness { background-color: #f472b6; color: #f472b6; }
+        #bar-tenderness { background-color: #c084fc; color: #c084fc; }
+        #instructions { position: absolute; top: 20px; width: 100%; text-align: center; color: rgba(255, 255, 255, 0.3); font-size: 0.8rem; pointer-events: none; z-index: 50; text-transform: uppercase; letter-spacing: 1px; }
+        
+        /* --- PANEL DE CONFIGURACIÓN --- */
+        #config-toggle {
+            position: absolute; top: 20px; right: 20px; z-index: 200;
+            width: 40px; height: 40px; border-radius: 50%;
+            background: rgba(10, 20, 40, 0.8); border: 1px solid var(--primary-glow);
+            color: var(--primary-glow); display: flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: all 0.3s ease;
+        }
+        #config-toggle:hover { transform: rotate(90deg); box-shadow: 0 0 15px var(--primary-glow); }
+
+        #config-panel {
+            position: absolute; top: 70px; right: 20px; width: 280px;
+            background: rgba(5, 12, 25, 0.95); border: 1px solid rgba(77, 219, 255, 0.3);
+            border-radius: 12px; padding: 20px; backdrop-filter: blur(10px);
+            z-index: 199; transform: translateX(120%); transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: -10px 10px 30px rgba(0,0,0,0.8);
+        }
+        #config-panel.open { transform: translateX(0); }
+        
+        .config-item { margin-bottom: 15px; }
+        .config-label { display: flex; justify-content: space-between; color: #94a3b8; font-size: 0.8rem; margin-bottom: 5px; }
+        .config-val { color: var(--primary-glow); font-weight: bold; }
+        
+        input[type=range] {
+            width: 100%; -webkit-appearance: none; background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%;
+            background: var(--primary-glow); cursor: pointer; margin-top: -6px;
+            box-shadow: 0 0 10px var(--primary-glow);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 4px; cursor: pointer; background: rgba(255,255,255,0.2); border-radius: 2px;
+        }
+        input[type=range]:focus { outline: none; }
+
+        .btn-reset {
+            width: 100%; padding: 8px; margin-top: 10px;
+            background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255,255,255,0.2);
+            color: #aaa; font-size: 0.8rem; cursor: pointer; border-radius: 4px;
+            transition: all 0.2s;
+        }
+        .btn-reset:hover { background: rgba(255, 68, 68, 0.2); border-color: rgba(255, 68, 68, 0.5); color: #ffadad; }
+
+        body.petting { cursor: grabbing; }
+        body:not(.petting) { cursor: default; }
+        canvas { cursor: grab; }
+        body.petting canvas { cursor: grabbing; }
+
+    </style>
+</head>
+<body>
+    <div id="webgl-container"></div>
+    <div id="instructions">✨ Haz clic sobre el Ente y frota para darle cariño ✨</div>
+
+    <!-- BOTÓN Y PANEL DE CONFIGURACIÓN -->
+    <button id="config-toggle"><i class="fas fa-cog"></i></button>
+    
+    <div id="config-panel">
+        <h3 style="color:var(--primary-glow); font-family:'Cinzel'; text-align:center; margin-bottom:15px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:10px;">
+            Configuración Cuántica
+        </h3>
+
+        <div class="config-item">
+            <div class="config-label"><span>Velocidad Temporal</span><span id="val-speed" class="config-val">1.0</span></div>
+            <input type="range" id="input-speed" min="0" max="5.0" step="0.1" value="1.0">
+        </div>
+
+        <div class="config-item">
+            <div class="config-label"><span>Opacidad Base</span><span id="val-opacity" class="config-val">0.15</span></div>
+            <input type="range" id="input-opacity" min="0" max="1.0" step="0.01" value="0.15">
+        </div>
+
+        <div class="config-item">
+            <div class="config-label"><span>Intensidad Borde (Fresnel)</span><span id="val-fresnel" class="config-val">0.55</span></div>
+            <input type="range" id="input-fresnel" min="0" max="2.0" step="0.05" value="0.55">
+        </div>
+
+        <div class="config-item">
+            <div class="config-label"><span>Saturación Color</span><span id="val-color" class="config-val">1.2</span></div>
+            <input type="range" id="input-color" min="0.0" max="2.0" step="0.1" value="1.2">
+        </div>
+
+        <button class="btn-reset" id="btn-reset">Restablecer Valores de Fábrica</button>
+    </div>
+
+    <div id="loader-ui">
+        <h1>Incubadora de Huevo Cósmico</h1>
+        <button id="load-button">Cargar Genoma (.cegg)</button>
+        <input type="file" id="file-input" accept=".cegg">
+    </div>
+
+    <div id="hud-ui">
+        <h3 id="entity-name">Vínculo Establecido</h3>
+        <div class="stat-row-num"><span>Voluntad (PV)</span><span id="val-pv" class="val-pv">0</span></div>
+        <div class="stat-row-num"><span>Potencial (Mu)</span><span id="val-mu" class="val-mu">0</span></div>
+        <hr class="border-gray-700 my-4 opacity-50">
+        <div class="bar-group">
+            <div class="bar-label"><span>Felicidad</span><span id="text-happiness">50%</span></div>
+            <div class="progress-track"><div id="bar-happiness" class="progress-fill" style="width: 50%;"></div></div>
+        </div>
+        <div class="bar-group">
+            <div class="bar-label"><span>Ternura (Vínculo)</span><span id="text-tenderness">0%</span></div>
+            <div class="progress-track"><div id="bar-tenderness" class="progress-fill" style="width: 0%;"></div></div>
+        </div>
+    </div>
+
+    <script>
+        // --- GESTOR DE CONFIGURACIÓN ---
+        const ConfigManager = {
+            // Valores por defecto
+            defaults: {
+                speed: 1.0,
+                opacityBase: 0.15,
+                fresnelIntensity: 0.55,
+                colorSaturation: 1.2
+            },
+            current: {},
+            
+            init() {
+                // Cargar guardado o usar defaults
+                const saved = localStorage.getItem('entity_config');
+                if (saved) {
+                    this.current = { ...this.defaults, ...JSON.parse(saved) };
+                } else {
+                    this.current = { ...this.defaults };
+                }
+
+                this.bindUI();
+                this.updateUI();
+                
+                // Toggle del panel
+                document.getElementById('config-toggle').addEventListener('click', () => {
+                    document.getElementById('config-panel').classList.toggle('open');
+                });
+
+                document.getElementById('btn-reset').addEventListener('click', () => {
+                    this.current = { ...this.defaults };
+                    this.save();
+                    this.updateUI();
+                    this.applyToEntity();
+                });
+            },
+
+            bindUI() {
+                // Helpers para binding
+                const bind = (id, key) => {
+                    const el = document.getElementById(id);
+                    const valEl = document.getElementById(id.replace('input-', 'val-'));
+                    
+                    el.addEventListener('input', (e) => {
+                        const val = parseFloat(e.target.value);
+                        this.current[key] = val;
+                        valEl.innerText = val.toFixed(2);
+                        this.applyToEntity(); // Aplicar en tiempo real
+                        this.save();          // Guardar en tiempo real
+                    });
+                };
+
+                bind('input-speed', 'speed');
+                bind('input-opacity', 'opacityBase');
+                bind('input-fresnel', 'fresnelIntensity');
+                bind('input-color', 'colorSaturation');
+            },
+
+            updateUI() {
+                // Sincronizar sliders con valores actuales
+                const update = (id, key) => {
+                    const val = this.current[key];
+                    document.getElementById(id).value = val;
+                    document.getElementById(id.replace('input-', 'val-')).innerText = val.toFixed(2);
+                };
+                update('input-speed', 'speed');
+                update('input-opacity', 'opacityBase');
+                update('input-fresnel', 'fresnelIntensity');
+                update('input-color', 'colorSaturation');
+            },
+
+            save() {
+                localStorage.setItem('entity_config', JSON.stringify(this.current));
+            },
+
+            applyToEntity() {
+                if (globalEntity) {
+                    globalEntity.updateUniforms(this.current);
+                }
+            }
+        };
+
+        // --- CONFIGURACIÓN DEL JUEGO ---
+        const DECAY_RATE = 3.0;
+        const PET_RECOVERY = 45.0;
+        const BOND_GROWTH = 8.0;
+
+        // --- VARIABLES GLOBALES ---
+        let scene, camera, renderer, clock;
+        let globalEntity = null;
+        let raycaster, mouse;
+        let isMouseDown = false;
+        let isHoveringEntity = false;
+
+        // --- CLASE ENTIDAD (Cerebro del Ente) ---
+        class CosmicEntity {
+            constructor(scene, stats) {
+                this.scene = scene;
+                this.stats = stats; 
+                this.happiness = 50; 
+                this.tenderness = 0;
+                this.emotionState = 'neutral';
+                this.meshGroup = new THREE.Group();
+                this.scene.add(this.meshGroup);
+
+                this.initBody();
+                this.initFace();
+                this.initHands();
+                this.initAura();
+
+                // Aplicar configuración inicial
+                ConfigManager.applyToEntity();
+            }
+
+            initBody() {
+                const geo = new THREE.SphereGeometry(3, 128, 128); 
+                
+                const mat = new THREE.ShaderMaterial({
+                    uniforms: {
+                        uTime: { value: 0.0 },
+                        uSpeed: { value: 1.0 },
+                        uOpacityBase: { value: 0.15 },
+                        uFresnelIntensity: { value: 0.55 },
+                        uColorSaturation: { value: 1.2 }
+                    },
+                    vertexShader: document.getElementById('vertexshader').textContent,
+                    fragmentShader: document.getElementById('fragmentshader').textContent,
+                    transparent: true,
+                    blending: THREE.NormalBlending, 
+                    side: THREE.DoubleSide, 
+                    depthWrite: false 
+                });
+
+                this.body = new THREE.Mesh(geo, mat);
+                this.meshGroup.add(this.body);
+            }
+
+            updateUniforms(config) {
+                // Actualizar shaders del cuerpo y manos
+                const updateMat = (mesh) => {
+                    if (mesh && mesh.material.uniforms) {
+                        mesh.material.uniforms.uSpeed.value = config.speed;
+                        mesh.material.uniforms.uOpacityBase.value = config.opacityBase;
+                        mesh.material.uniforms.uFresnelIntensity.value = config.fresnelIntensity;
+                        mesh.material.uniforms.uColorSaturation.value = config.colorSaturation;
+                    }
+                };
+                updateMat(this.body);
+                updateMat(this.handL);
+                updateMat(this.handR);
+            }
+
+            initFace() {
+                this.faceGroup = new THREE.Group();
+                this.faceGroup.position.set(0, 0.5, 2.6);
+                this.meshGroup.add(this.faceGroup);
+
+                const eyeGeo = new THREE.CapsuleGeometry(0.35, 0.5, 4, 8);
+                eyeGeo.rotateZ(Math.PI / 2);
+                const eyeMat = new THREE.MeshBasicMaterial({ color: 0x0F172A });
+                
+                this.leftEye = new THREE.Mesh(eyeGeo, eyeMat);
+                this.leftEye.position.set(-0.8, 0.2, 0.1);
+                this.faceGroup.add(this.leftEye);
+
+                this.rightEye = new THREE.Mesh(eyeGeo, eyeMat.clone());
+                this.rightEye.position.set(0.8, 0.2, 0.1);
+                this.faceGroup.add(this.rightEye);
+
+                const shineGeo = new THREE.CircleGeometry(0.12, 8);
+                const shineMat = new THREE.MeshBasicMaterial({ color: 0xFFFFFF });
+                const sL = new THREE.Mesh(shineGeo, shineMat); sL.position.set(-0.2, 0.2, 0.3); this.leftEye.add(sL);
+                const sR = new THREE.Mesh(shineGeo, shineMat); sR.position.set(-0.2, 0.2, 0.3); this.rightEye.add(sR);
+
+                const mouthShape = new THREE.Shape();
+                mouthShape.absarc(0, 0, 0.3, 0, Math.PI, false);
+                const mouthGeo = new THREE.ShapeGeometry(mouthShape);
+                const mouthMat = new THREE.MeshBasicMaterial({ color: 0x0F172A });
+                this.mouth = new THREE.Mesh(mouthGeo, mouthMat);
+                this.mouth.position.set(0, -0.3, 0.1);
+                this.faceGroup.add(this.mouth);
+
+                const blushGeo = new THREE.CircleGeometry(0.5, 16);
+                this.blushMat = new THREE.MeshBasicMaterial({ color: 0xFF69B4, transparent: true, opacity: 0 });
+                const bL = new THREE.Mesh(blushGeo, this.blushMat); bL.position.set(-1.6, -0.3, -0.2); bL.rotation.y = -0.4;
+                const bR = new THREE.Mesh(blushGeo, this.blushMat); bR.position.set(1.6, -0.3, -0.2); bR.rotation.y = 0.4;
+                this.faceGroup.add(bL, bR);
+            }
+
+            initHands() {
+                const handGeo = new THREE.SphereGeometry(0.6, 32, 32);
+                const handMat = this.body.material.clone();
+                this.handL = new THREE.Mesh(handGeo, handMat); this.handL.position.set(-3.2, -1, 1);
+                this.handR = new THREE.Mesh(handGeo, handMat); this.handR.position.set(3.2, -1, 1);
+                this.meshGroup.add(this.handL, this.handR);
+            }
+
+            initAura() {
+                const pGeo = new THREE.BufferGeometry();
+                const count = 150;
+                const positions = [];
+                for(let i=0; i<count; i++) {
+                    positions.push((Math.random()-0.5)*10, (Math.random()-0.5)*10, (Math.random()-0.5)*10);
+                }
+                pGeo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+                
+                const canvas = document.createElement('canvas'); canvas.width=32; canvas.height=32;
+                const ctx = canvas.getContext('2d');
+                const grad = ctx.createRadialGradient(16,16,0,16,16,16);
+                grad.addColorStop(0, 'rgba(255,255,255,1)'); grad.addColorStop(1, 'rgba(255,255,255,0)');
+                ctx.fillStyle = grad; ctx.fillRect(0,0,32,32);
+                const tex = new THREE.CanvasTexture(canvas);
+
+                this.auraMat = new THREE.PointsMaterial({
+                    map: tex, size: 0.3, color: 0xFFFFFF, 
+                    transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false
+                });
+                this.particles = new THREE.Points(pGeo, this.auraMat);
+                this.meshGroup.add(this.particles);
+            }
+            
+            pet(delta) {
+                const happyGain = PET_RECOVERY * delta;
+                const bondGain = BOND_GROWTH * delta;
+                
+                this.happiness = Math.min(100, this.happiness + happyGain);
+                this.tenderness = Math.min(100, this.tenderness + bondGain);
+                return true; 
+            }
+
+            update(time, delta, isPetting) {
+                if (!isPetting) {
+                    this.happiness = Math.max(0, this.happiness - (DECAY_RATE * delta));
+                }
+
+                if (this.happiness <= 5) this.emotionState = 'dormant';
+                else if (this.happiness < 30) this.emotionState = 'sad';
+                else if (isPetting) this.emotionState = 'happy';
+                else this.emotionState = 'neutral';
+
+                this.updateHUD();
+                this.animateVisuals(time, delta, isPetting);
+            }
+
+            animateVisuals(time, delta, isPetting) {
+                if (this.body.material.uniforms) {
+                    this.body.material.uniforms.uTime.value = time;
+                }
+                if (this.handL.material.uniforms) {
+                    this.handL.material.uniforms.uTime.value = time;
+                    this.handR.material.uniforms.uTime.value = time;
+                }
+
+                let floatAmp = 0.3;
+                let floatSpeed = 1.0;
+                let scaleTarget = 1.0;
+                let eyeMode = 'open';
+
+                if (this.emotionState === 'dormant') {
+                    floatAmp = 0.05;
+                    floatSpeed = 0.2;
+                    scaleTarget = 0.7;
+                    eyeMode = 'closed';
+                } else if (this.emotionState === 'sad') {
+                    floatSpeed = 0.5;
+                    eyeMode = 'sad'; 
+                } else if (isPetting) {
+                    floatSpeed = 15.0; 
+                    floatAmp = 0.05;
+                    scaleTarget = 1.1; 
+                    eyeMode = 'happy';
+                    this.blushMat.opacity = THREE.MathUtils.lerp(this.blushMat.opacity, 0.8, 0.1);
+                } else {
+                    this.blushMat.opacity = THREE.MathUtils.lerp(this.blushMat.opacity, 0, 0.1);
+                }
+
+                const y = Math.sin(time * floatSpeed) * floatAmp;
+                this.meshGroup.position.y = THREE.MathUtils.lerp(this.meshGroup.position.y, y, 0.1);
+                this.meshGroup.scale.setScalar(THREE.MathUtils.lerp(this.meshGroup.scale.x, scaleTarget, 0.1));
+
+                this.animateEyes(eyeMode, delta);
+
+                const handTargetY = isPetting ? 0.5 : -1.0;
+                this.handL.position.y = THREE.MathUtils.lerp(this.handL.position.y, handTargetY + y, 0.1);
+                this.handR.position.y = THREE.MathUtils.lerp(this.handR.position.y, handTargetY + y, 0.1);
+
+                this.meshGroup.rotation.y = Math.sin(time * 0.2) * 0.1;
+            }
+
+            animateEyes(mode, delta) {
+                let sy = 1; 
+                let rotZ = Math.PI / 2;
+
+                if (mode === 'closed') {
+                    sy = 0.1;
+                } else if (mode === 'happy') {
+                    sy = 0.15; 
+                    rotZ = Math.PI / 2 + 0.3;
+                    this.leftEye.rotation.z = rotZ;
+                    this.rightEye.rotation.z = Math.PI / 2 - 0.3;
+                } else if (mode === 'sad') {
+                    rotZ = Math.PI / 2 - 0.2;
+                    this.leftEye.rotation.z = rotZ;
+                    this.rightEye.rotation.z = Math.PI / 2 + 0.2;
+                } else {
+                    if (Math.random() > 0.995) sy = 0.1;
+                    this.leftEye.rotation.z = Math.PI / 2;
+                    this.rightEye.rotation.z = Math.PI / 2;
+                }
+
+                if (mode !== 'happy') {
+                    this.leftEye.scale.y = THREE.MathUtils.lerp(this.leftEye.scale.y, sy, 0.3);
+                    this.rightEye.scale.y = THREE.MathUtils.lerp(this.rightEye.scale.y, sy, 0.3);
+                } else {
+                    this.leftEye.scale.y = sy; 
+                    this.rightEye.scale.y = sy;
+                }
+            }
+
+            updateHUD() {
+                const barH = document.getElementById('bar-happiness');
+                const txtH = document.getElementById('text-happiness');
+                const barT = document.getElementById('bar-tenderness');
+                const txtT = document.getElementById('text-tenderness');
+
+                if (barH) {
+                    barH.style.width = `${this.happiness}%`;
+                    txtH.innerText = `${Math.round(this.happiness)}%`;
+                    barH.style.backgroundColor = this.happiness < 30 ? '#EF4444' : '#f472b6';
+                }
+                if (barT) {
+                    barT.style.width = `${this.tenderness}%`;
+                    txtT.innerText = `${Math.round(this.tenderness)}%`;
+                }
+            }
+            
+            updateServerStats(newStats) {
+                this.stats = newStats;
+                document.getElementById('val-pv').innerText = this.stats.pv.toLocaleString();
+                document.getElementById('val-mu').innerText = this.stats.mu.toLocaleString();
+            }
+        }
+
+        // --- MOTOR GRÁFICO (THREE.JS) ---
+        function init() {
+            // Inicializar Gestor de Configuración
+            ConfigManager.init();
+
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x02040a, 0.02);
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 0, 15);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.2;
+            document.getElementById('webgl-container').appendChild(renderer.domElement);
+
+            const ambientLight = new THREE.AmbientLight(0x404040, 1.5);
+            scene.add(ambientLight);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 2.0);
+            dirLight.position.set(5, 10, 7);
+            scene.add(dirLight);
+
+            createStarField();
+
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+            
+            window.addEventListener('resize', onWindowResize);
+            window.addEventListener('mousemove', onMouseMove);
+            window.addEventListener('mousedown', () => isMouseDown = true);
+            window.addEventListener('mouseup', () => isMouseDown = false);
+            
+            window.addEventListener('touchstart', (e) => { isMouseDown=true; updateMouse(e.touches[0]); }, {passive:false});
+            window.addEventListener('touchend', () => isMouseDown=false);
+            window.addEventListener('touchmove', (e) => updateMouse(e.touches[0]), {passive:false});
+
+            document.getElementById('load-button').addEventListener('click', () => document.getElementById('file-input').click());
+            document.getElementById('file-input').addEventListener('change', handleFileLoad);
+
+            clock = new THREE.Clock();
+
+            birthEntity({ pv: 1000, mu: 100 });
+
+            animate();
+        }
+
+        function createStarField() {
+            const geometry = new THREE.BufferGeometry();
+            const vertices = [];
+            for(let i=0; i<3000; i++) {
+                vertices.push(THREE.MathUtils.randFloatSpread(1000), THREE.MathUtils.randFloatSpread(1000), THREE.MathUtils.randFloatSpread(1000));
+            }
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            const material = new THREE.PointsMaterial({ color: 0x8888aa, size: 0.7, transparent: true, opacity: 0.8 });
+            scene.add(new THREE.Points(geometry, material));
+        }
+
+        function updateMouse(event) {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        }
+        function onMouseMove(event) { updateMouse(event); }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const time = clock.getElapsedTime();
+            const delta = clock.getDelta();
+
+            let isPetting = false;
+            if (globalEntity && globalEntity.body) {
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObject(globalEntity.body);
+                isHoveringEntity = intersects.length > 0;
+
+                if (isHoveringEntity) {
+                    document.body.classList.add('petting');
+                } else {
+                    document.body.classList.remove('petting');
+                }
+
+                if (isHoveringEntity && isMouseDown) {
+                    isPetting = globalEntity.pet(delta);
+                }
+                
+                globalEntity.update(time, delta, isPetting);
+            }
+
+            camera.position.x += (mouse.x * 2 - camera.position.x) * 0.05;
+            camera.position.y += (mouse.y * 2 - camera.position.y) * 0.05;
+            camera.lookAt(0, 0, 0);
+
+            renderer.render(scene, camera);
+        }
+
+        function handleFileLoad(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const content = e.target.result;
+                    const dataStart = content.indexOf('{');
+                    const dataEnd = content.lastIndexOf('}') + 1;
+                    const jsonString = content.substring(dataStart, dataEnd);
+                    const data = JSON.parse(jsonString);
+                    
+                    const stats = calculateAnimaStats(data);
+                    document.getElementById('loader-ui').style.display = 'none';
+                    birthEntity(stats);
+                } catch(e) { console.error("Error parseando archivo", e); }
+            };
+            reader.readAsText(file);
+        }
+
+        function calculateAnimaStats(data) {
+            let totalPV = data.perfil_global?.estadisticas_globales?.total_pv_acumulado || 1000;
+            let totalMu = 0;
+            if (data.perfiles_usuarios) {
+                for (const k in data.perfiles_usuarios) {
+                    totalMu += data.perfiles_usuarios[k].datos_cuantitativos?.nivel_y_xp?.mu_disponibles || 0;
+                }
+            }
+            if (totalMu === 0) totalMu = 100;
+            return { pv: totalPV, mu: totalMu };
+        }
+
+        function birthEntity(stats) {
+            if (globalEntity) {
+                globalEntity.updateServerStats(stats);
+            } else {
+                globalEntity = new CosmicEntity(scene, stats);
+            }
+            document.getElementById('hud-ui').classList.add('visible');
+        }
+
+        let lastDataHash = "";
+        async function syncWithCosmos() {
+            try {
+                const response = await fetch('http://localhost:5000/api/egg');
+                if (response.ok) {
+                    const data = await response.json();
+                    const currentHash = JSON.stringify(data.perfil_global?.estadisticas_globales);
+                    
+                    if (currentHash !== lastDataHash) {
+                        lastDataHash = currentHash;
+                        const stats = calculateAnimaStats(data);
+                        document.getElementById('loader-ui').style.display = 'none';
+                        birthEntity(stats);
+                    }
+                }
+            } catch (e) { }
+        }
+        
+        setInterval(syncWithCosmos, 2000);
+        init();
+
+    </script>
+</body>
+</html>
