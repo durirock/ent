@@ -1,0 +1,3013 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AeroCosmos Cartógrafo</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Segoe UI', Tahoma, sans-serif; user-select: none; }
+        canvas { display: block; cursor: crosshair; }
+
+        .ui-overlay {
+            position: absolute; top: 20px; left: 20px; color: white; pointer-events: none;
+            text-shadow: 0 2px 5px rgba(0,0,0,1); z-index: 10;
+        }
+
+        .controls-hint {
+            position: absolute; bottom: 20px; right: 20px; background: rgba(0,0,0,0.7);
+            color: #4ade80; padding: 15px; border-radius: 12px; font-size: 0.85rem;
+            backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, 0.15); z-index: 10;
+            max-width: 260px; line-height: 1.5;
+        }
+
+        .flight-instruments {
+            position: absolute; bottom: 20px; left: 20px; background: rgba(0,0,0,0.85);
+            color: #fff; padding: 15px; border-radius: 12px; font-family: monospace;
+            border: 1px solid rgba(100, 200, 255, 0.4); z-index: 10; display: none;
+            box-shadow: 0 0 20px rgba(0, 150, 255, 0.3); min-width: 190px;
+        }
+        .instrument-value { font-size: 1.6rem; font-weight: bold; color: #60a5fa; }
+        .vario-positive { color: #4ade80; }
+        .vario-negative { color: #f87171; }
+        .wind-row { font-size: 0.7rem; color: #94a3b8; letter-spacing: 1px; margin-top: 8px; border-top: 1px solid rgba(255,255,255,0.12); padding-top: 8px; }
+
+        .top-buttons { position: absolute; top: 20px; right: 20px; display: flex; gap: 10px; z-index: 20; }
+
+        .icon-btn {
+            background: linear-gradient(135deg, #1e3a8a, #3b82f6); color: white;
+            width: 45px; height: 45px; border-radius: 50%; font-size: 1.5rem;
+            display: flex; justify-content: center; align-items: center; cursor: pointer;
+            border: 2px solid rgba(255,255,255,0.2); box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            transition: all 0.2s;
+        }
+        .icon-btn:hover { transform: scale(1.1); }
+        .icon-btn:active { transform: scale(0.95); }
+        .active-btn { background: linear-gradient(135deg, #b45309, #f59e0b); }
+
+        #music-panel {
+            position: absolute; top: 75px; right: 20px; background: rgba(10, 5, 0, 0.9);
+            padding: 20px; border-radius: 12px; border: 1px solid #ff4400;
+            box-shadow: 0 0 25px rgba(255, 68, 0, 0.4); width: 280px; z-index: 10;
+            display: none; color: white; backdrop-filter: blur(10px);
+        }
+        #music-panel h2 { margin: 0 0 15px 0; font-size: 14px; color: #ff4400; letter-spacing: 2px; border-bottom: 1px solid #ff4400; padding-bottom: 8px; text-transform: uppercase;}
+
+        #radio-panel {
+            position: absolute; top: 75px; right: 75px; background: rgba(5, 10, 20, 0.92);
+            padding: 20px; border-radius: 12px; border: 1px solid #38bdf8;
+            box-shadow: 0 0 25px rgba(56, 189, 248, 0.35); width: 260px; z-index: 10;
+            display: none; color: white; backdrop-filter: blur(10px);
+        }
+        #radio-panel h2 { margin: 0 0 15px 0; font-size: 14px; color: #38bdf8; letter-spacing: 2px; border-bottom: 1px solid #38bdf8; padding-bottom: 8px; text-transform: uppercase;}
+
+        #settings-panel {
+            position: absolute; top: 75px; right: 130px; background: rgba(10, 15, 5, 0.92);
+            padding: 20px; border-radius: 12px; border: 1px solid #a3e635;
+            box-shadow: 0 0 25px rgba(163, 230, 53, 0.3); width: 260px; z-index: 10;
+            display: none; color: white; backdrop-filter: blur(10px); max-height: 80vh; overflow-y: auto;
+        }
+        #settings-panel h2 { margin: 0 0 15px 0; font-size: 14px; color: #a3e635; letter-spacing: 2px; border-bottom: 1px solid #a3e635; padding-bottom: 8px; text-transform: uppercase;}
+
+        .control-group { margin-bottom: 15px; }
+        .control-group label { display: block; font-size: 11px; color: #ddd; margin-bottom: 5px; letter-spacing: 1px; }
+        input[type=range] { width: 100%; accent-color: #ff4400; cursor: pointer; }
+
+        .btn-start-music {
+            background: #ff4400; color: white; border: none; padding: 10px; width: 100%;
+            font-family: inherit; font-weight: bold; cursor: pointer; letter-spacing: 1px;
+            border-radius: 6px; transition: background 0.3s;
+        }
+        .btn-start-music:hover { background: #cc3300; }
+        .phase-tag { font-size: 10px; letter-spacing: 2px; color: #fbbf24; text-transform: uppercase; }
+
+        #loading {
+            position: fixed; inset: 0; background: #000; display: flex;
+            justify-content: center; align-items: center; z-index: 1000; color: #3b82f6; transition: opacity 1s;
+        }
+        /* CARTÓGRAFO */
+        #view-chip { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 15; display: flex; gap: 6px; align-items: center;
+            background: rgba(0,0,0,0.62); padding: 7px 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.15); color: #cbd5e1;
+            font-size: 11px; letter-spacing: 1px; text-transform: uppercase; backdrop-filter: blur(8px); }
+        #view-chip span { padding: 3px 9px; border-radius: 999px; cursor: pointer; }
+        #view-chip span.on { background: #f59e0b; color: #111; font-weight: 700; }
+        #view-bar { width: 70px; height: 3px; background: rgba(255,255,255,0.18); border-radius: 2px; position: relative; margin-left: 6px; }
+        #view-bar i { position: absolute; top: -2px; width: 7px; height: 7px; border-radius: 50%; background: #f59e0b; }
+        #map2d { position: absolute; inset: 0; z-index: 40; display: none; flex-direction: column; align-items: center; justify-content: center;
+            background: rgba(4,8,18,0.9); backdrop-filter: blur(4px); }
+        #map2d .map-bar { color: #e2e8f0; font-size: 12px; letter-spacing: 1px; margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 16px; align-items: center; font-family: monospace; padding: 0 16px; }
+        #map-canvas { border: 1px solid rgba(255,255,255,0.25); border-radius: 6px; cursor: crosshair; box-shadow: 0 10px 40px rgba(0,0,0,0.6); max-width: 94vw; }
+        #terrain-editor { position: absolute; top: 20px; left: 20px; bottom: 20px; width: 300px; z-index: 30; display: none; overflow-y: auto;
+            background: rgba(12, 10, 6, 0.93); color: #f1f5f9; padding: 16px 18px; border-radius: 12px; border: 1px solid #f59e0b;
+            box-shadow: 0 0 25px rgba(245, 158, 11, 0.25); backdrop-filter: blur(10px); font-size: 12px; }
+        #terrain-editor h2 { margin: 0 0 10px; font-size: 14px; color: #f59e0b; letter-spacing: 2px; text-transform: uppercase; display: flex; justify-content: space-between; }
+        #terrain-editor h2 span { cursor: pointer; color: #f87171; font-size: 18px; line-height: 1; }
+        #terrain-editor h3 { margin: 14px 0 8px; font-size: 11px; color: #fbbf24; letter-spacing: 2px; text-transform: uppercase; border-top: 1px solid rgba(255,255,255,0.12); padding-top: 10px; }
+        #te-preview { width: 100%; aspect-ratio: 1; border-radius: 6px; border: 1px solid rgba(255,255,255,0.15); background: #0a1b45; display: block; margin: 8px 0 4px; }
+        #te-bar { width: 100%; height: 12px; border-radius: 3px; display: block; margin-bottom: 8px; }
+        .te-select { width: 100%; background: #1c1917; color: #f1f5f9; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; padding: 5px; margin-bottom: 6px; font-size: 12px; }
+        .te-chk { display: flex; gap: 6px; align-items: center; font-size: 11px; color: #ddd; cursor: pointer; margin: 4px 0; }
+        .te-info { font-size: 11px; color: #a8a29e; margin: 4px 0; }
+        .te-stop { display: flex; gap: 6px; align-items: center; margin-bottom: 4px; }
+        .te-stop input[type=number] { width: 64px; background: #1c1917; color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; padding: 3px; font-size: 12px; }
+        .te-stop span { flex: 1; color: #a8a29e; font-size: 10px; }
+        .te-stop input[type=color] { width: 34px; height: 24px; border: none; background: none; padding: 0; cursor: pointer; }
+        .te-stop button { background: none; border: none; color: #f87171; font-size: 16px; cursor: pointer; }
+        .te-btn { background: #292524; color: #fde68a; border: 1px solid rgba(245,158,11,0.5); border-radius: 6px; padding: 5px 9px; font-size: 11px; cursor: pointer; display: inline-block; margin: 3px 3px 0 0; }
+        .te-btn:hover { background: #44403c; }
+        .te-actions { margin-top: 14px; border-top: 1px solid rgba(255,255,255,0.12); padding-top: 10px; }
+        @media (prefers-reduced-motion: reduce) { .animate-spin, .animate-pulse { animation: none !important; } }
+    </style>
+</head>
+<body>
+    <div id="loading">
+        <div class="text-center">
+            <div class="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4 mx-auto"></div>
+            <p class="animate-pulse text-lg font-bold uppercase tracking-widest">Generando topografía</p>
+        </div>
+    </div>
+
+    <div class="ui-overlay">
+        <h1 class="text-4xl font-black tracking-tighter uppercase text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-green-300 drop-shadow-md">AeroCosmos</h1>
+        <p class="text-[11px] uppercase tracking-widest text-amber-300 font-bold">Cartógrafo · un mundo hecho solo de tus dibujos</p>
+        <p class="text-xs opacity-90 mt-1 font-mono" id="coords">Lat: 0 | Lon: 0</p>
+        <p class="text-[12px] uppercase tracking-widest text-cyan-300 mt-2 font-bold" id="mode-status">Modo: Exploración libre</p>
+        <p class="text-[11px] uppercase tracking-widest text-orange-400 mt-1 font-bold" id="time-status">Amanecer</p>
+    </div>
+
+    <div class="top-buttons">
+        <div class="icon-btn" id="btn-view" title="Cambiar vista: ave · 3ª · 1ª persona (V / rueda)" style="font-size:1.25rem">◎</div>
+        <div class="icon-btn" id="btn-editor" title="Editor de terrenos (E)" style="font-size:1.25rem">✎</div>
+        <div class="icon-btn" id="btn-map" title="Vista de águila sobre el mapa (5)" style="font-size:1.25rem">▦</div>
+        <div class="icon-btn" id="btn-music" title="Núcleo funk">🎵</div>
+        <div class="icon-btn" id="btn-radio" title="Radio Tagua Tagua">📻</div>
+        <div class="icon-btn" id="btn-settings" title="Configuración visual">⚙️</div>
+        <div class="icon-btn" id="btn-paraglider" title="Volar parapente">🪂</div>
+    </div>
+
+    <div id="settings-panel">
+        <h2>Configuración visual</h2>
+        <div class="control-group">
+            <label>Brillo: <span id="val-brightness">100</span>%</label>
+            <input type="range" id="cfg-brightness" min="50" max="150" step="1" value="100">
+        </div>
+        <div class="control-group">
+            <label>Saturación: <span id="val-saturation">100</span>%</label>
+            <input type="range" id="cfg-saturation" min="0" max="200" step="1" value="100">
+        </div>
+        <div class="control-group">
+            <label>Contraste: <span id="val-contrast">100</span>%</label>
+            <input type="range" id="cfg-contrast" min="50" max="150" step="1" value="100">
+        </div>
+        <div class="control-group">
+            <label>Exposición (tone mapping): <span id="val-exposure">100</span>%</label>
+            <input type="range" id="cfg-exposure" min="40" max="160" step="1" value="100">
+        </div>
+        <hr style="border-color: rgba(255,255,255,0.15); margin: 14px 0;">
+        <div class="control-group">
+            <label>Fuerza del viento: <span id="val-wind">6.0</span> m/s</label>
+            <input type="range" id="cfg-wind" min="2" max="14" step="0.5" value="6">
+        </div>
+        <div class="control-group">
+            <label>Térmicas: <span id="val-thermal">100</span>%</label>
+            <input type="range" id="cfg-thermal" min="0" max="200" step="5" value="100">
+        </div>
+        <div class="control-group">
+            <label>Corrientes ambientales: <span id="val-ambientwind">100</span>%</label>
+            <input type="range" id="cfg-ambientwind" min="0" max="200" step="5" value="100">
+        </div>
+        <hr style="border-color: rgba(255,255,255,0.15); margin: 14px 0;">
+        <div class="control-group">
+            <label>Curvas de nivel: <span id="val-contour">85</span>%</label>
+            <input type="range" id="cfg-contour" min="0" max="100" step="1" value="85">
+        </div>
+        <div class="control-group">
+            <label>Equidistancia de curvas: <span id="val-interval">20</span> m</label>
+            <input type="range" id="cfg-interval" min="0" max="4" step="1" value="1">
+        </div>
+        <div class="control-group">
+            <label>Tinta del dibujo en vuelo: <span id="val-ink">35</span>%</label>
+            <input type="range" id="cfg-ink" min="0" max="100" step="1" value="35">
+        </div>
+        <button class="btn-start-music" id="btn-reset-settings" style="margin-top:6px;">Restablecer</button>
+    </div>
+
+    <div id="music-panel">
+        <h2>Núcleo musical</h2>
+        <button id="btn-start-core" class="btn-start-music">Iniciar groove core</button>
+        <div id="music-controls" style="display: none; margin-top: 15px;">
+            <div class="control-group">
+                <label>Volumen maestro</label>
+                <input type="range" id="vol-master" min="0" max="1" step="0.05" value="0.75">
+            </div>
+            <div class="control-group">
+                <label>Tempo global: <span id="bpm-val">90</span> BPM</label>
+                <input type="range" id="tempo-slider" min="70" max="110" value="90">
+            </div>
+            <div class="control-group">
+                <label>Reactividad de nebulosas</label>
+                <input type="range" id="nebula-react" min="0" max="1" step="0.05" value="0.7">
+            </div>
+            <p class="phase-tag">Fase: <span id="phase-val">—</span></p>
+        </div>
+    </div>
+
+    <div id="radio-panel">
+        <h2>Radio Tagua Tagua</h2>
+        <button id="btn-connect-radio" class="btn-start-music">Conectar</button>
+        <div id="radio-controls" style="display: none; margin-top: 15px;">
+            <div class="control-group">
+                <label>Volumen radio</label>
+                <input type="range" id="vol-radio" min="0" max="1" step="0.05" value="0.8">
+            </div>
+            <div class="control-group">
+                <label>Reactividad al espectro</label>
+                <input type="range" id="spectrum-react" min="0" max="1" step="0.05" value="0.8">
+            </div>
+            <p class="phase-tag" id="radio-status">Conectando…</p>
+        </div>
+        <p id="radio-error" style="display:none; font-size:11px; color:#f87171; margin-top:10px; line-height:1.5;"></p>
+    </div>
+
+    <div class="flight-instruments" id="instruments">
+        <div class="mb-2">SPD: <span class="instrument-value" id="inst-spd">0</span> km/h</div>
+        <div class="mb-2">ALT: <span class="instrument-value" id="inst-alt">0</span> m</div>
+        <div>VAR: <span class="instrument-value" id="inst-var">0.0</span> m/s</div>
+        <div class="wind-row" id="inst-wind">AGL 0 m · ladera —</div>
+    </div>
+
+    <div class="controls-hint" id="controls">
+        <p><strong>Click + arrastrar:</strong> mirar</p>
+        <p><strong>WASD:</strong> moverse</p>
+        <p><strong>Z / X:</strong> subir / bajar</p>
+        <p><strong>Rueda / V:</strong> ave ⇄ 3ª ⇄ 1ª persona</p>
+                    <p><strong>5:</strong> águila · <strong>M:</strong> mapa · <strong>E:</strong> editor</p>
+    </div>
+
+    <div id="terrain-editor">
+        <h2>Editor de terrenos <span id="te-close" title="cerrar (E)">×</span></h2>
+        <select id="te-map" class="te-select"></select>
+        <canvas id="te-preview" width="260" height="260"></canvas>
+        <label class="te-chk"><input type="checkbox" id="te-show-ink" checked> mostrar trazo original</label>
+        <p id="te-info" class="te-info"></p>
+        <h3>Relieve</h3>
+        <div id="te-sliders"></div>
+        <label class="te-chk"><input type="checkbox" id="te-invert"> el trazo como cañón (en vez de cresta)</label>
+        <h3>Tintas hipsométricas</h3>
+        <canvas id="te-bar" width="260" height="12"></canvas>
+        <select id="te-preset" class="te-select"></select>
+        <div id="te-stops"></div>
+        <button id="te-add-stop" class="te-btn">+ cota</button>
+        <h3>Batimetría</h3>
+        <select id="te-sea-preset" class="te-select"></select>
+        <div id="te-sea-stops"></div>
+        <button id="te-add-sea" class="te-btn">+ profundidad</button>
+        <div class="te-actions">
+            <button id="te-go" class="te-btn">Ir a este mapa</button>
+            <button id="te-reset" class="te-btn">Restablecer mapa</button>
+            <button id="te-export" class="te-btn">Exportar JSON</button>
+            <label class="te-btn">Importar JSON<input type="file" id="te-import" accept=".json,application/json" hidden></label>
+        </div>
+        <p class="te-info">Los cambios se aplican al soltar el control y se guardan en este navegador.</p>
+    </div>
+
+    <div id="view-chip">
+        <span data-b="0">Ave</span><span data-b="1">3ª persona</span><span data-b="2">1ª persona</span><span data-e="1">Águila</span><div id="view-bar"><i></i></div>
+    </div>
+
+    <div id="map2d">
+        <div class="map-bar">
+            <strong style="color:#fbbf24">MAPA HIPSOMÉTRICO</strong>
+            <span>clic: viajar ahí</span><span>rueda: zoom</span>
+            <label style="cursor:pointer"><input type="checkbox" id="map-ink" checked> trazo original</label>
+            <span id="map-close" style="cursor:pointer;color:#f87171">[M / Esc] cerrar</span>
+        </div>
+        <canvas id="map-canvas"></canvas>
+    </div>
+
+
+    <script>
+        /* ============================================================
+           TINTA VIVA — los dibujos de /ent se vuelven continentes
+           ------------------------------------------------------------
+           Punto de injerto ÚNICO: envuelve noise.get(x, z). Como todo el
+           motor (malla, colisión, lift de ladera, térmicas, nubes) lee el
+           relieve desde ahí, los trazos quedan "físicos" sin tocar nada más:
+           una línea de tinta es una cresta y el parapente encuentra lift
+           en ella igual que en cualquier ladera.
+
+           Lectura automática de cada dibujo (se mide al cargar):
+             · cobertura    → cuánta masa tiene: archipiélago vs. macizo
+             · esquinas     → ángulos rectos locales (laberintos): terrazas, mesetas, cañones
+             · coherencia   → trazos paralelos que fluyen: crestas largas y afiladas
+             · concentración→ masa en un núcleo: pico solitario vs. altiplano
+           El relieve sale de tres escalas del mismo trazo:
+             macizo (densidad muy difuminada) + estrato (densidad media) + cresta (la línea misma)
+
+           No repetitivo: cada celda del mundo elige dibujo, giro, espejo,
+           tamaño y desplazamiento por hash, y un domain-warp suave curva las
+           líneas. Entre continentes sigue el planeta original.
+           ============================================================ */
+        const TINTA = {
+            FILES: [
+                '20260804_235208', '20260804_235258', '20260804_235438', '20260804_235522',
+                '20260804_235629', '20260804_235716', '20260804_235746', '20260804_235904',
+                '20260804_235931', '20260804_235958', '20260805_000054', '20260805_000128',
+                '20260805_000200', '20260805_000232', '20260805_000322', '20260805_000445',
+                '20260805_000507'
+            ],
+            // Primero busca los .svg junto a este HTML; si no, en el repo ent publicado.
+            SOURCES: ['./', 'https://durirock.github.io/ent/'],
+            SPAWN_FILE: '20260805_000232',   // el gran arco: el primer continente que ves
+            RES: 900,            // px del lado mayor para ANALIZAR y para el relieve suave (macizo/estrato)
+            SHARP_RES: 2000,     // px del lado mayor para la LÍNEA (cresta y tinta): ~1.5 m por píxel. Bájalo a 1400 si la carga pesa
+            CELL: 3000,          // tamaño de celda del mundo; una isla posible por celda
+            SIZE_MIN: 2800,      // lado mayor del continente en metros (> CELL: se solapan)
+            SIZE_MAX: 4000,
+            PROB: 0.88,          // probabilidad de que una celda tenga continente
+            EDGE: 0.16,          // ancho de la costa que se funde con el planeta original
+            BASE_KEEP: 0.15,     // cuánto del relieve original sobrevive sobre el dibujo
+            WARP: 70,            // m de curvatura orgánica sobre las líneas
+            INK_SHADE: 0.78,     // cuánto oscurece la tinta el suelo (0 = invisible)
+            drawings: [], islands: new Map(), ready: false,
+            lastInk: 0, lastMask: 0, lastIsland: null
+        };
+
+        // --- utilidades de campo -------------------------------------------------
+        function tintaBlur(src, W, H, r, passes) {
+            let a = Float32Array.from(src), b = new Float32Array(W * H);
+            const inv = 1 / (2 * r + 1);
+            for (let p = 0; p < passes; p++) {
+                for (let y = 0; y < H; y++) {           // horizontal a -> b (borde = papel vacío)
+                    const o = y * W; let acc = 0;
+                    for (let k = 0; k <= r && k < W; k++) acc += a[o + k];
+                    for (let x = 0; x < W; x++) {
+                        b[o + x] = acc * inv;
+                        if (x + r + 1 < W) acc += a[o + x + r + 1];
+                        if (x - r >= 0) acc -= a[o + x - r];
+                    }
+                }
+                for (let x = 0; x < W; x++) {           // vertical b -> a
+                    let acc = 0;
+                    for (let k = 0; k <= r && k < H; k++) acc += b[k * W + x];
+                    for (let y = 0; y < H; y++) {
+                        a[y * W + x] = acc * inv;
+                        if (y + r + 1 < H) acc += b[(y + r + 1) * W + x];
+                        if (y - r >= 0) acc -= b[(y - r) * W + x];
+                    }
+                }
+            }
+            return a;
+        }
+        function tintaNormalize(a) {
+            let m = 1e-6; for (let i = 0; i < a.length; i++) if (a[i] > m) m = a[i];
+            for (let i = 0; i < a.length; i++) a[i] /= m;
+            return a;
+        }
+        function tintaBilinear(arr, W, H, x, y) {
+            const x0 = Math.floor(x), y0 = Math.floor(y);
+            if (x0 < 0 || y0 < 0 || x0 >= W - 1 || y0 >= H - 1) return 0;
+            const fx = x - x0, fy = y - y0, i = y0 * W + x0;
+            return (arr[i] * (1 - fx) + arr[i + 1] * fx) * (1 - fy) + (arr[i + W] * (1 - fx) + arr[i + W + 1] * fx) * fy;
+        }
+        const tintaSS = (e0, e1, x) => { const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t); };
+
+        // --- lectura del dibujo: métricas → personalidad de relieve ----------------
+        function tintaAnalyze(ink, W, H) {
+            const D = Math.max(W, H), m = Math.round(D * 0.04);   // ignora marcos y espiral del cuaderno
+            const N = W * H;
+            const E = new Float32Array(N), C2 = new Float32Array(N), S2 = new Float32Array(N), C4 = new Float32Array(N), S4 = new Float32Array(N);
+            let cov = 0, n = 0;
+            for (let y = m; y < H - m; y++) for (let x = m; x < W - m; x++) {
+                const i = y * W + x; cov += ink[i] > 0.5 ? 1 : 0; n++;
+                const gx = ink[i + 1] - ink[i - 1], gy = ink[i + W] - ink[i - W];
+                const g2 = gx * gx + gy * gy; if (g2 < 1e-4) continue;
+                const c2 = (gx * gx - gy * gy) / g2, s2 = 2 * gx * gy / g2;
+                E[i] = g2; C2[i] = g2 * c2; S2[i] = g2 * s2;
+                C4[i] = g2 * (c2 * c2 - s2 * s2); S4[i] = g2 * 2 * c2 * s2;
+            }
+            cov /= Math.max(1, n);
+            // Ventanas locales (~1.7% del dibujo): ¿los trazos aquí son paralelos (simetría 2)
+            // o forman esquinas en ángulo recto (simetría 4)? Invariante al giro del papel.
+            const r = Math.round(D * 0.017);
+            const bE = tintaBlur(E, W, H, r, 1), bC2 = tintaBlur(C2, W, H, r, 1), bS2 = tintaBlur(S2, W, H, r, 1);
+            const bC4 = tintaBlur(C4, W, H, r, 1), bS4 = tintaBlur(S4, W, H, r, 1);
+            let coh = 0, rect = 0, wsum = 0;
+            for (let i = 0; i < N; i += 2) {
+                const e = bE[i]; if (e < 1e-4) continue;
+                const w = e * e;
+                const c2 = Math.hypot(bC2[i], bS2[i]) / e, c4 = Math.hypot(bC4[i], bS4[i]) / e;
+                coh += c2 * w; rect += (c4 - c2) * w; wsum += w;
+            }
+            coh /= Math.max(1e-9, wsum); rect /= Math.max(1e-9, wsum);
+
+            // Mapeo continuo métrica → relieve (sin cortes duros: cada dibujo es único)
+            const terrace = tintaSS(-0.12, -0.01, rect);               // esquinas rectas → mesetas escalonadas
+            const crestK  = 18 + 28 * tintaSS(0.55, 0.75, coh);        // trazo paralelo que fluye → cresta afilada
+            const massK   = 180 + 160 * tintaSS(0.05, 0.20, cov);      // masa de tinta → altura del macizo
+            let kind;
+            if (terrace > 0.5)      kind = 'Meseta laberíntica';
+            else if (cov < 0.065)   kind = 'Archipiélago';
+            else if (cov > 0.16)    kind = 'Macizo';
+            else if (coh > 0.62)    kind = 'Sierra fluida';
+            else                    kind = 'Cordillera';
+            return { cov, rect, coh, terrace, crestK, massK, kind };
+        }
+
+        async function tintaLoadOne(file) {
+            let txt = null;
+            for (const base of TINTA.SOURCES) {
+                try {
+                    const res = await fetch(base + file + '.svg');
+                    if (res.ok) { txt = await res.text(); if (txt.includes('<svg')) break; txt = null; }
+                } catch (e) { /* file:// o CORS: probar la siguiente fuente */ }
+            }
+            if (!txt) throw new Error('no encontrado');
+            const vb = (txt.match(/viewBox="([^"]+)"/) || [])[1];
+            const [, , vw, vh] = vb ? vb.split(/[\s,]+/).map(Number) : [0, 0, 1000, 1000];
+            const k = TINTA.RES / Math.max(vw, vh);
+            const W = Math.round(vw * k), H = Math.round(vh * k);
+            const url = URL.createObjectURL(new Blob([txt], { type: 'image/svg+xml' }));
+            const img = new Image();
+            await new Promise((ok, ko) => { img.onload = ok; img.onerror = ko; img.src = url; });
+            const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+            const g = cv.getContext('2d');
+            g.fillStyle = '#fff'; g.fillRect(0, 0, W, H); g.drawImage(img, 0, 0, W, H);
+            const px = g.getImageData(0, 0, W, H).data;
+            const ink = new Float32Array(W * H);
+            for (let i = 0; i < W * H; i++) ink[i] = 1 - px[i * 4 + 1] / 255;
+
+            // NITIDEZ: la línea se rasteriza aparte, en alta resolución y sin difuminar.
+            // Se guarda en 8 bits (liviano) y se muestrea en cada vértice con umbral suave:
+            // el borde de la cresta cae entre píxeles, no en la grilla del raster.
+            const SW = Math.round(vw * TINTA.SHARP_RES / Math.max(vw, vh)), SH = Math.round(vh * TINTA.SHARP_RES / Math.max(vw, vh));
+            const cs = document.createElement('canvas'); cs.width = SW; cs.height = SH;
+            const gs = cs.getContext('2d');
+            gs.fillStyle = '#fff'; gs.fillRect(0, 0, SW, SH); gs.drawImage(img, 0, 0, SW, SH);
+            const spx = gs.getImageData(0, 0, SW, SH).data;
+            let sf = new Float32Array(SW * SH);
+            for (let i = 0; i < SW * SH; i++) sf[i] = 1 - spx[i * 4 + 1] / 255;
+            // bisel mínimo (~3 px = ~4 m): el borde de la pared ocupa 3 vértices de la malla fina.
+            // Más angosto que eso, la grilla no lo resuelve y aparece serrucho.
+            // LOMO: el mismo trazo muy abierto (~25 m). Es el cuerpo de la cresta: sube en rampa,
+            // en vez del muro vertical de 4 m de ancho que la grilla dibujaba como serrucho.
+            const sb = tintaBlur(sf, SW, SH, Math.round(SW * 0.004) + 2, 2);
+            sf = tintaBlur(sf, SW, SH, 1, 1);
+            const sharp = new Uint8Array(SW * SH), broad = new Uint8Array(SW * SH);
+            for (let i = 0; i < SW * SH; i++) {
+                sharp[i] = Math.min(255, sf[i] * 255 * 1.3);
+                broad[i] = Math.min(255, sb[i] * 255 * 2.5);
+            }
+            URL.revokeObjectURL(url);
+
+            const P = tintaAnalyze(ink, W, H);
+            const D = Math.max(W, H);
+            const massif = tintaNormalize(tintaBlur(ink, W, H, Math.round(D * 0.045), 3));
+            const strata = tintaNormalize(tintaBlur(ink, W, H, Math.round(D * 0.012), 3));
+
+            // EDITOR: macizo y estrato se guardan (8 bits) para poder recalcular el relieve al editar.
+            const mass8 = new Uint8Array(W * H), strata8 = new Uint8Array(W * H);
+            for (let i = 0; i < W * H; i++) { mass8[i] = massif[i] * 255; strata8[i] = strata[i] * 255; }
+            const d = { file, W, H, D, P, sharp, broad, SW, SH, sk: SW / W, mass8, strata8 };
+            d.cfg = terrMakeCfg(d);      // valores propios de este mapa (o los guardados)
+            tintaBuildHeight(d);
+            return d;
+        }
+
+        async function tintaInit() {
+            const label = document.querySelector('#loading p');
+            const say = t => { if (label) label.textContent = t; };
+            for (let i = 0; i < TINTA.FILES.length; i++) {
+                say(`Leyendo tinta ${i + 1}/${TINTA.FILES.length}`);
+                await new Promise(r => setTimeout(r, 0));   // deja respirar al loader
+                try { TINTA.drawings.push(await tintaLoadOne(TINTA.FILES[i])); }
+                catch (e) { console.warn('[Tinta Viva] sin', TINTA.FILES[i], e.message); }
+            }
+            if (TINTA.drawings.length === 0) { console.warn('[Tinta Viva] ningún dibujo cargó: planeta original.'); return; }
+            console.table(TINTA.drawings.map(d => ({ dibujo: d.file, tipo: d.P.kind,
+                cobertura: d.P.cov.toFixed(3), esquinas: d.P.rect.toFixed(2), coherencia: d.P.coh.toFixed(2) })));
+
+            // CARTÓGRAFO: el mundo sale SOLO de los dibujos. Donde no hay dibujo hay océano,
+            // cada vez más hondo al alejarse de la costa (batimetría real, con plataforma y talud).
+            noise.base = noise.get;   // el planeta original queda guardado, pero ya no se usa
+            noise.get = function (x, z) {
+                const has = tintaSample(x, z);
+                const floor = SEA_LEVEL - 3 - TOPO.MAX_DEPTH * Math.pow(1 - TINTA.lastShallow, 1.4);
+                if (!has) return floor;
+                const land = SEA_LEVEL + 4 + TINTA.lastH;
+                return floor + (land - floor) * tintaSS(0, 1, TINTA.lastMask);
+            };
+            TINTA.ready = true;
+            say('Generando topografía');
+        }
+
+        // --- islas: una por celda, decidida por hash (determinista, sin guardar mapa) ---
+        function tintaHash(i, j, s) { const h = Math.sin(i * 127.1 + j * 311.7 + s * 74.7) * 43758.5453; return h - Math.floor(h); }
+        function tintaIsland(i, j) {
+            const key = i * 100003 + j;
+            if (TINTA.islands.has(key)) return TINTA.islands.get(key);
+            let isl = null;
+            const N = TINTA.drawings.length, home = i === 0 && j === 0;
+            if (home || tintaHash(i, j, 1) < TINTA.PROB) {
+                let d = TINTA.drawings[Math.floor(tintaHash(i, j, 2) * N) % N];
+                if (home) d = TINTA.drawings.find(x => x.file === TINTA.SPAWN_FILE) || TINTA.drawings[0];
+                const size = (home ? 3000 : TINTA.SIZE_MIN + tintaHash(i, j, 3) * (TINTA.SIZE_MAX - TINTA.SIZE_MIN)) * d.cfg.size;
+                const ang = home ? 0 : tintaHash(i, j, 4) * Math.PI * 2;
+                isl = {
+                    d, ang, cos: Math.cos(ang), sin: Math.sin(ang),
+                    mirror: 1,                            // CARTÓGRAFO: sin espejo — desde el cielo el trazo se lee como en el papel
+                    cx: home ? 0 : (i + (tintaHash(i, j, 6) - 0.5) * 0.3) * TINTA.CELL,
+                    cz: home ? 0 : (j + (tintaHash(i, j, 7) - 0.5) * 0.3) * TINTA.CELL,
+                    k: d.D / size,                        // px por metro
+                    lift: home ? 1 : 0.8 + tintaHash(i, j, 8) * 0.45,
+                    ph: tintaHash(i, j, 9) * 6.283,       // fase de la costa (cada isla, su contorno)
+                    r2: (size * 0.75) ** 2                // radio de descarte rápido
+                };
+            }
+            if (TINTA.islands.size > 4000) TINTA.islands.clear();
+            TINTA.islands.set(key, isl);
+            return isl;
+        }
+
+        // Muestrea todas las islas que tocan (x,z). Deja el resultado en TINTA.last*.
+        function tintaSample(x, z) {
+            TINTA.lastInk = 0; TINTA.lastMask = 0; TINTA.lastH = 0; TINTA.lastIsland = null; TINTA.lastShallow = 0;
+            if (!TINTA.drawings.length) return false;
+            // domain-warp: las líneas se curvan un poco, distinto en cada lugar del mundo
+            const wx = x + TINTA.WARP * Math.sin(z * 0.0017 + 1.3) * Math.cos(x * 0.0011);
+            const wz = z + TINTA.WARP * Math.sin(x * 0.0019 + 4.1) * Math.cos(z * 0.0013);
+            const ci = Math.round(wx / TINTA.CELL), cj = Math.round(wz / TINTA.CELL);
+            let mSum = 0, hSum = 0, inkMax = 0, best = 0, shallow = 0;
+            for (let i = ci - 1; i <= ci + 1; i++) for (let j = cj - 1; j <= cj + 1; j++) {
+                const s = tintaIsland(i, j); if (!s) continue;
+                const dx = wx - s.cx, dz = wz - s.cz;
+                if (dx * dx + dz * dz > s.r2 * 3.2) continue;
+                const d = s.d;
+                const lx = (dx * s.cos + dz * s.sin) * s.mirror, lz = -dx * s.sin + dz * s.cos;
+                const px = lx * s.k + d.W / 2, py = lz * s.k + d.H / 2;
+                {   // CARTÓGRAFO: plataforma submarina alrededor de cada dibujo (batimetría)
+                    const u0 = (px - d.W / 2) / (d.W / 2), v0 = (py - d.H / 2) / (d.H / 2);
+                    const r0 = Math.pow(Math.pow(Math.abs(u0), 2.6) + Math.pow(Math.abs(v0), 2.6), 1 / 2.6);
+                    const sh = 1 - tintaSS(0.97, 1.75, r0);
+                    if (sh > shallow) shallow = sh;
+                }
+                if (px < 0 || py < 0 || px >= d.W || py >= d.H) continue;
+                // Costa orgánica: superelipse dentro del papel con contorno ondulado,
+                // en vez del rectángulo de la hoja (se veían cuadrados desde el aire).
+                const u = (px - d.W / 2) / (d.W / 2), v = (py - d.H / 2) / (d.H / 2);
+                const a = Math.atan2(v, u);
+                const rr = Math.pow(Math.pow(Math.abs(u), 2.6) + Math.pow(Math.abs(v), 2.6), 1 / 2.6)
+                         * (1 + 0.07 * Math.sin(a * 5 + s.ph) + 0.04 * Math.sin(a * 11 - s.ph * 2));
+                const m = 1 - tintaSS(1 - 2 * TINTA.EDGE, 1, rr);
+                if (m <= 0) continue;
+                // Línea nítida: umbral suave sobre el raster fino -> pared de cresta con borde definido
+                // relieve del papel con los valores del editor (cresta = lomo ancho + filo del trazo)
+                const h = tintaPaperHeight(d, px, py) * s.lift;
+                mSum += m; hSum += h * m;
+                const ink = TINTA._crisp * m;
+                if (ink > inkMax) inkMax = ink;
+                if (m > best) { best = m; TINTA.lastIsland = s; }
+            }
+            TINTA.lastShallow = shallow;
+            if (mSum <= 0) return false;
+            TINTA.lastMask = Math.min(1, mSum);
+            TINTA.lastH = hSum / mSum;
+            TINTA.lastInk = inkMax;
+            return true;
+        }
+
+        // Etiqueta para el HUD: qué dibujo estás sobrevolando
+        function tintaLabel(x, z) {
+            if (!TINTA.ready || !tintaSample(x, z) || TINTA.lastMask < 0.3) return '';
+            const f = TINTA.lastIsland.d.file;   // 20260805_000232 -> 05-ago 00:02
+            return ` · Sobrevolando: ${TINTA.lastIsland.d.P.kind} (${f.slice(6, 8)}-ago ${f.slice(9, 11)}:${f.slice(11, 13)})`;
+        }
+
+        // Aparece sobre el continente de inicio, mirándolo con perspectiva
+        function tintaSpawn() {
+            if (!TINTA.ready) return;
+            const home = TINTA.islands.get(0) || tintaIsland(0, 0);
+            const z = (home.d.H / home.k) * 0.3;          // sobre la orilla sur del dibujo, mirando hacia adentro
+            camera.position.set(0, Math.max(480, noise.get(0, z) + 260), z);
+            cameraRotY = 0; cameraRotX = -0.32;
+        }
+    </script>
+
+    <script>
+        /* ============================================================
+           AEROCOSMOS — FUSIÓN
+           Base: parapente_funk_mastered (2)  ->  terreno con lerp, nubes, curvatura
+           Injertos desde parapente_simulator (6):
+             · Nebulosas / galaxias giratorias (ahora reactivas al beat)
+             · Física de parapente suave (planeador, no arcade)
+             · VFX de viento en ascendencia
+           Arreglos nuevos:
+             · Órbita solar sobre eje celeste FIJO (trayectoria coherente)
+             · Luces direccionales con target correcto (bug en ambas versiones)
+             · Luna desacoplada del color de los beats (pulsa en brillo/tamaño)
+             · Mezcla de roca por PENDIENTE, no solo por altura
+             · LOD de malla y de árboles para chunks lejanos
+           ============================================================ */
+
+        const CHUNK_SIZE = 160;
+        const CHUNK_RES_NEAR = 64;
+        // NITIDEZ: sobre los dibujos la malla cerca del piloto sube a 128 (1.25 m por vértice).
+        // Solo potencias de 2 (32/64/128): así los bordes entre chunks comparten vértices.
+        const CHUNK_RES_INK  = 128;
+        const INK_FINE_DIST  = 2.5;  // radio (en chunks) de malla fina sobre tinta
+        const CHUNK_RES_FAR  = 32;   // LOD: chunks lejanos, ya cubiertos por niebla
+        const LOD_DISTANCE   = 7;    // a partir de aquí baja la malla
+        // TREE_DISTANCE eliminado: causaba el mismo bug que las nubes (ver createChunk).
+        // La densidad de árboles ahora se controla con treeDensity, no con un corte duro.
+        let VIEW_DISTANCE    = 10;   // CARTÓGRAFO: crece en vista de ave para cubrir el dibujo entero
+        const CURVATURE      = 0.00005;
+        const SEA_LEVEL      = -2.0;
+
+        // La niebla tapaba los cerros lejos: FOG_FAR estaba a 1360 (8.5 chunks) dejando
+        // muy poco margen visible dentro de un mundo cargado hasta 1600 (VIEW_DISTANCE).
+        // La subimos casi al borde de lo cargado (los chunks se descargan recién a 1760,
+        // así que sigue ocultando el "pop" de desaparición) y alejamos también el inicio,
+        // para una franja de neblina más angosta y lejana en vez de un lavado azul general.
+        const FOG_NEAR = 9 * CHUNK_SIZE;
+        const FOG_FAR  = (VIEW_DISTANCE + 0.4) * CHUNK_SIZE;
+
+        let scene, camera, renderer, clock;
+        let chunks = new Map();
+        let chunkQueue = [];
+
+        let sunLight, moonLight, ambientLight;
+        let sunMesh, moonMesh, sunTarget, moonTarget;
+        let sunBaseScale = 300, sunCurrentScale = 300;
+        let moonBaseScale = 210, moonCurrentScale = 210;
+
+        let currentSunColor = new THREE.Color(0xffdd44);
+        const baseSunColor  = new THREE.Color(0xffdd44);
+
+        // LUNA: color propio, blanco-azulado. Los beats NO lo tiñen.
+        let currentMoonColor = new THREE.Color(0xeaf4ff);
+        const baseMoonColor  = new THREE.Color(0xeaf4ff);
+        let moonBeatGlow = 0;              // 0..1, pulso de brillo por beat
+        const MOON_TINT_MAX = 0.10;        // cuánto color de beat se le permite (súbelo si quieres más funk lunar)
+
+        let cosmosGroup, starsMat;
+        let nebulas = [];                  // { group, points, mat, baseSize, rotSpeed, reactive, pulse, baseColor }
+        let nebulaReactivity = 0.7;
+
+        // Nubes: viven en un grupo GLOBAL en coordenadas de mundo, no colgadas del chunk.
+        // Así pueden moverse libremente por el espacio y las tormentas se pueden
+        // agrupar entre sí sin importar de qué chunk vino cada una.
+        let cloudsRoot;
+        let activeClouds = [];             // { mesh, mat, puffMats, type, chunkKey, driftDir, driftSpeed, baseScale, densityGlow }
+
+        // Pulso global de beat: TODOS los instrumentos lo alimentan. Las nubes respiran
+        // con el groove completo, a diferencia de las nebulosas que responden a SU voz.
+        let globalBeatPulse = 0;
+
+        let keys = {};
+        let isMouseDown = false;
+        let lastMousePos = { x: 0, y: 0 };
+        let cameraRotY = 0;
+        let cameraRotX = 0;
+
+        let dayTime = 40;
+        const dayDuration = 160;
+
+        let isParagliding = false;
+
+        // ---- EJE CELESTE FIJO -------------------------------------------------
+        // El sol orbita alrededor de este eje, anclado al MUNDO (no a la cámara).
+        // Por eso sale siempre por el mismo lado sin importar tu rumbo de vuelo.
+        // Inclinación: 0.76 en Y deja el sol subiendo hasta ~40° sobre el horizonte.
+        // Un eje casi horizontal lo mandaría al cenit y perderías el arco.
+        // Bájalo (p. ej. 0.55) para un sol más alto; súbelo para un sol más rasante, tipo Patagonia.
+        const CELESTIAL_AXIS = new THREE.Vector3(0.325, 0.76, -0.566).normalize();
+        const ORBIT_RADIUS = 8000;
+        let orbitU = new THREE.Vector3(), orbitV = new THREE.Vector3();
+
+        function buildCelestialBasis() {
+            // U: vector perpendicular al eje (dirección del "amanecer")
+            orbitU.set(1, 0, 0);
+            orbitU.sub(CELESTIAL_AXIS.clone().multiplyScalar(orbitU.dot(CELESTIAL_AXIS))).normalize();
+            // V: completa la base ortonormal del plano orbital
+            orbitV.crossVectors(CELESTIAL_AXIS, orbitU).normalize();
+        }
+
+        // ---- FÍSICA DEL PARAPENTE (constantes de v6: planeador, no arcade) -----
+        const pg = {
+            velocity: new THREE.Vector3(0, 0, 0),
+            speed: 15,
+            sinkRate: -1.2,
+            turnSpeed: 1.5,
+            pitchAngle: 0,
+            rollAngle: 0,
+            targetPitch: 0,
+            targetRoll: 0,
+            liftForce: 0,
+            windDir: new THREE.Vector3(1, 0, 0.5).normalize(),
+            windStrength: 6
+        };
+
+        // ---- AERODINÁMICA: reglas reales de parapentismo ---------------------
+        // 1) LIFT DE LADERA (dynamic/ridge lift): el viento choca contra una ladera
+        //    de cara y se desvía hacia arriba. Es más fuerte cuanto más de frente
+        //    pega el viento y más empinada es la pendiente, y se concentra en una
+        //    banda de altura pegada al relieve (ni pegado al suelo -turbulencia-
+        //    ni muy por encima -se sale de la influencia de la ladera-).
+        // 2) TÉRMICAS: el sol calienta roca/tierra expuesta y ese aire sube en
+        //    columna. Depende de la elevación solar (nada de noche) y de qué tan
+        //    expuesta al sol está la ladera.
+        // 3) SOTAVENTO: al otro lado de la ladera el viento baja y forma rotor
+        //    (turbulencia, hundimiento) — se evita en vuelo real, aquí castiga.
+        // 4) CORRIENTES AMBIENTALES: campo de burbujas de aire subiendo/bajando
+        //    repartidas por todo el mapa, no solo en laderas — la "plaga" de
+        //    corrientes que pediste, para que el cielo entero tenga textura.
+        // 5) ANTICOLISIÓN: si el relieve sube más rápido de lo que el ala puede
+        //    trepar, se agrega compresión de aire extra justo antes del impacto
+        //    en vez de dejar que folle en línea recta contra la pared — igual que
+        //    un piloto real siente la compresión y gana altura antes de llegar.
+        const LIFT_BAND_HEIGHT = 130;   // m — ancho de la banda donde el lift de ladera es fuerte
+        const SLOPE_LIFT_K     = 3.4;   // fuerza del lift de ladera
+        const LEE_SINK_K       = 1.6;   // fuerza del hundimiento de sotavento
+        const THERMAL_STRENGTH = 4.2;   // fuerza base de las térmicas (sol)
+        const AMBIENT_DRAFT    = 1.1;   // m/s — amplitud de las corrientes ambientales
+        const MAX_LIFT         = 9;     // m/s techo de ascendencia (realista: 6-10 m/s es fuerte)
+        const MAX_SINK_AIR     = -6;    // m/s piso de hundimiento por aire (sin contar la caída propia del ala)
+        const COLLISION_LOOKAHEAD = 55; // m — hasta dónde se mira para anticolisión
+        const COLLISION_LIFT_K = 0.55;  // fuerza de la compresión de emergencia
+
+        let thermalMultiplier = 1.0;      // ajustable desde Configuración
+        let ambientWindMultiplier = 1.0;  // ajustable desde Configuración
+        let sunElevation = 0;             // lo escribe updateAtmosphere, lo leen las térmicas
+
+        // Campo de corrientes ambientales: ruido de valor simple, distinto del
+        // terreno, que evoluciona lento en el tiempo (nacen y mueren burbujas).
+        function ambientAirField(x, z, t) {
+            const n = Math.sin(x * 0.006 + t * 0.15) * Math.cos(z * 0.007 - t * 0.11)
+                    + Math.sin(x * 0.013 - z * 0.009 + t * 0.08) * 0.6;
+            return n * 0.5; // aprox -1..1
+        }
+
+        let windVFXGroup;
+        const windParticles = [];
+
+
+        const CURV_U = { value: CURVATURE };   // CARTÓGRAFO: compartido, para aplanar el mundo en vista de ave
+        const worldCurvatureShader = {
+            onBeforeCompile: (shader) => {
+                shader.uniforms.uCurvature = CURV_U;
+                shader.vertexShader = `uniform float uCurvature;\n` + shader.vertexShader;
+                shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>',
+                    `#include <begin_vertex>
+                    #ifdef USE_INSTANCING
+                        vec4 worldPos = modelMatrix * instanceMatrix * vec4(position, 1.0);
+                    #else
+                        vec4 worldPos = modelMatrix * vec4(position, 1.0);
+                    #endif
+                    float dist = distance(worldPos.xz, cameraPosition.xz);
+                    transformed.y -= pow(dist, 2.0) * uCurvature;`
+                );
+            }
+        };
+
+        // =====================================================================
+        // CARTÓGRAFO — lenguaje de mapa topográfico aplicado al mundo 3D
+        //   · Tintas hipsométricas: verde (bajo) → amarillo/ocre (media montaña) → café/rojizo → blanco (cumbres)
+        //   · Batimetría: celeste en la orilla → azul marino en lo hondo
+        //   · Sombreado de relieve (hillshade): luz fija del NOROESTE, horneada en el color
+        //   · Curvas de nivel e isóbatas: se dibujan en el shader, por píxel, siempre nítidas
+        //   · Tinta del dibujo original: atributo propio, fuerte desde el cielo y suave en vuelo
+        // =====================================================================
+        const TOPO = {
+            MAX_DEPTH: 90,                                   // m bajo el mar en mar abierto
+            HILLSHADE: 0.65,                                 // peso del sombreado NO horneado
+            LIGHT: new THREE.Vector3(-0.5, 0.7071, -0.5).normalize(),   // acimut 315° (NO), 45° de elevación
+            inkFlight: 0.35, inkBird: 0.95,                  // tinta del trazo: en vuelo · en vista de ave
+            LAND: [[0, '#3f7d47'], [40, '#5f9d53'], [100, '#9dc66f'], [170, '#e4da8a'], [240, '#d6aa5c'],
+                   [320, '#b27b46'], [400, '#8f5037'], [470, '#a89a92'], [540, '#f4f4f1']],
+            SEA:  [[0, '#a8e1ef'], [4, '#6db8de'], [18, '#3478b5'], [45, '#1b4a8a'], [90, '#0a1b45']]
+        };
+        TOPO.LAND = TOPO.LAND.map(([h, c]) => [h, new THREE.Color(c)]);
+        TOPO.SEA  = TOPO.SEA.map(([h, c]) => [h, new THREE.Color(c)]);
+        function topoColor(h, out) {
+            const e = h - SEA_LEVEL, tbl = e >= 0 ? TOPO.LAND : TOPO.SEA, v = Math.abs(e);
+            if (v <= tbl[0][0]) return out.copy(tbl[0][1]);
+            for (let i = 1; i < tbl.length; i++) {
+                if (v <= tbl[i][0]) return out.copy(tbl[i - 1][1]).lerp(tbl[i][1], (v - tbl[i - 1][0]) / (tbl[i][0] - tbl[i - 1][0]));
+            }
+            return out.copy(tbl[tbl.length - 1][1]);
+        }
+        const TOPO_U = {
+            uTopoInterval: { value: 20 },    // equidistancia de curvas (m); maestras cada 5
+            uTopoContour:  { value: 0.85 },
+            uTopoInk:      { value: 0.35 },
+            uTopoSea:      { value: SEA_LEVEL }
+        };
+
+        const globalTerrainMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, metalness: 0.0 });
+        globalTerrainMat.extensions = { derivatives: true };   // fwidth() en WebGL1
+        globalTerrainMat.onBeforeCompile = (shader) => {
+            Object.assign(shader.uniforms, TOPO_U);
+            shader.vertexShader = 'attribute float aInk;\nvarying float vInk;\nvarying float vTopoH;\n' +
+                shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n    vInk = aInk; vTopoH = position.y;');
+            worldCurvatureShader.onBeforeCompile(shader);
+            shader.fragmentShader = 'uniform float uTopoInterval;\nuniform float uTopoContour;\nuniform float uTopoInk;\nuniform float uTopoSea;\nvarying float vInk;\nvarying float vTopoH;\n' +
+                shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+                {
+                    // Curvas de nivel: distancia a la isolínea más cercana, medida en píxeles (fwidth)
+                    float e   = vTopoH - uTopoSea;
+                    float ci  = e / uTopoInterval;
+                    float fw  = max(fwidth(ci), 1e-4);
+                    float dl  = abs(fract(ci + 0.5) - 0.5);
+                    float ln  = 1.0 - smoothstep(0.4 * fw, 1.4 * fw, dl);
+                    float cm  = e / (uTopoInterval * 5.0);
+                    float fwm = max(fwidth(cm), 1e-4);
+                    float dm  = abs(fract(cm + 0.5) - 0.5);
+                    float mst = 1.0 - smoothstep(0.7 * fwm, 2.1 * fwm, dm);
+                    // Si las curvas se juntan más que un píxel ya no se pueden leer: se desvanecen.
+                    // Hasta ese punto, curvas apretadas = ladera abrupta, como en la carta.
+                    float dn  = 1.0 - smoothstep(0.22, 0.55, fw);
+                    float dnm = 1.0 - smoothstep(0.22, 0.55, fwm);
+                    vec3 lc = e < 0.0 ? vec3(0.05, 0.19, 0.42) : vec3(0.30, 0.17, 0.07);   // isóbatas azules · isohipsas sepia
+                    float a = max(ln * 0.40 * dn, mst * 0.75 * dnm) * uTopoContour;
+                    diffuseColor.rgb = mix(diffuseColor.rgb, lc, a);
+                    // Trazo original del dibujo
+                    diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.07, 0.055, 0.045), clamp(vInk, 0.0, 1.0) * uTopoInk);
+                }`);
+        };
+
+        // AGUA
+        // El shader de curvatura desplaza CADA VÉRTICE con pow(dist,2). Con un plano de
+        // 1x1 segmentos solo hay 4 vértices, así que entre ellos la GPU interpola LINEAL
+        // mientras el terreno (64 subdivisiones) sigue la curva real: las dos superficies
+        // se cruzaban entre sí y el cruce se movía con la cámara. Eso era el "despixelado"
+        // que se veía temblar en la orilla. Con 32 segmentos el agua sigue la misma curva.
+        const globalWaterGeo = new THREE.PlaneGeometry(CHUNK_SIZE, CHUNK_SIZE, 32, 32);
+        globalWaterGeo.rotateX(-Math.PI / 2);
+
+        // roughness baja = brillo especular PEQUEÑO y concentrado (el reflejo del sol/luna).
+        // Súbela para agrandarlo, bájala para reducirlo aún más.
+        const globalWaterMat = new THREE.MeshStandardMaterial({
+            color: 0x2a7fb8, roughness: 0.055, metalness: 0.18,
+            transparent: true, opacity: 0.5, depthWrite: false,   // CARTÓGRAFO: agua translúcida, deja ver la batimetría
+            polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1
+        });
+        globalWaterMat.onBeforeCompile = worldCurvatureShader.onBeforeCompile;
+
+        const globalTrunkGeo = new THREE.CylinderGeometry(0.2, 0.6, 4, 5);
+        const globalLeafGeo = new THREE.ConeGeometry(2.5, 9, 6);
+        const globalTrunkMat = new THREE.MeshStandardMaterial({ color: 0x3d2817, roughness: 1.0 });
+        globalTrunkMat.onBeforeCompile = worldCurvatureShader.onBeforeCompile;
+        const globalLeafMat = new THREE.MeshStandardMaterial({ color: 0x0f3b0f, roughness: 0.9 });
+        globalLeafMat.onBeforeCompile = worldCurvatureShader.onBeforeCompile;
+
+        // Recursos compartidos entre chunks: nunca se liberan al descargar un chunk.
+        const SHARED_GEOS = new Set([globalWaterGeo, globalTrunkGeo, globalLeafGeo]);
+        const SHARED_MATS = new Set([globalTerrainMat, globalWaterMat, globalTrunkMat, globalLeafMat]);
+
+        const noise = {
+            seed: 777.7,
+            get: function(x, z) {
+                let h = Math.sin(x * 0.004 + this.seed) * Math.cos(z * 0.003 + this.seed) * 100;
+                h += Math.sin(x * 0.015) * Math.cos(z * 0.02) * 25;
+                h += Math.sin(x * 0.05) * 5;
+                if (h > 15) h += Math.pow(h - 15, 1.3);
+                if (h < 0) h *= 0.4;
+                return h;
+            }
+        };
+
+        function getTerrainNormal(x, z) {
+            const e = 1.0;
+            const hL = noise.get(x - e, z), hR = noise.get(x + e, z);
+            const hD = noise.get(x, z - e), hU = noise.get(x, z + e);
+            return new THREE.Vector3(hL - hR, 2.0 * e, hD - hU).normalize();
+        }
+
+        function smoothstep(edge0, edge1, x) {
+            const t = THREE.MathUtils.clamp((x - edge0) / (edge1 - edge0), 0, 1);
+            return t * t * (3 - 2 * t);
+        }
+
+        // =====================================================================
+        // INIT
+        // =====================================================================
+        function init() {
+            buildCelestialBasis();
+
+            scene = new THREE.Scene();
+            const initialSky = new THREE.Color(0x87ceeb);
+            scene.background = initialSky.clone();
+            scene.fog = new THREE.Fog(initialSky.clone(), FOG_NEAR, FOG_FAR);
+
+            camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 22000);
+            camera.position.set(0, 150, 0);
+            camera.rotation.order = 'YXZ';
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+            // BUG ENCONTRADO ("muy saturado, la tierra se ve blanca"): sin tone mapping,
+            // r128 recorta a blanco puro cualquier fragmento iluminado que pase de 1.0 —
+            // pasaba fácil con sunLight(1.2) + ambient sumados sobre terreno claro (arena).
+            // ACESFilmicToneMapping comprime esos altos en vez de reventarlos a blanco.
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.0;
+            document.body.appendChild(renderer.domElement);
+
+            clock = new THREE.Clock();
+
+            ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+            scene.add(ambientLight);
+
+            // ARREGLO: las luces direccionales necesitan un target que siga a la cámara,
+            // si no, la dirección de iluminación se deforma al alejarte del origen.
+            sunLight = new THREE.DirectionalLight(0xffeedd, 1.2);
+            sunTarget = new THREE.Object3D();
+            scene.add(sunLight, sunTarget);
+            sunLight.target = sunTarget;
+
+            moonLight = new THREE.DirectionalLight(0x8899ff, 0.0);
+            moonTarget = new THREE.Object3D();
+            scene.add(moonLight, moonTarget);
+            moonLight.target = moonTarget;
+
+            const astrosGeo = new THREE.IcosahedronGeometry(1, 2);
+
+            const sunMat = new THREE.MeshStandardMaterial({
+                color: baseSunColor.clone(), emissive: baseSunColor.clone(),
+                emissiveIntensity: 0.9, wireframe: true, fog: false
+            });
+            sunMesh = new THREE.Mesh(astrosGeo, sunMat);
+            sunMesh.scale.setScalar(sunBaseScale);
+            scene.add(sunMesh);
+
+            const moonMat = new THREE.MeshStandardMaterial({
+                color: baseMoonColor.clone(), emissive: baseMoonColor.clone(),
+                emissiveIntensity: 0.7, wireframe: true, fog: false
+            });
+            moonMesh = new THREE.Mesh(astrosGeo, moonMat);
+            moonMesh.scale.setScalar(moonBaseScale);
+            scene.add(moonMesh);
+
+            createCosmos();
+            createWindVFX();
+
+            cloudsRoot = new THREE.Group();
+            scene.add(cloudsRoot);
+
+            window.addEventListener('keydown', e => keys[e.code] = true);
+            window.addEventListener('keyup', e => keys[e.code] = false);
+            window.addEventListener('mousedown', e => { isMouseDown = true; lastMousePos = { x: e.clientX, y: e.clientY }; });
+            window.addEventListener('mouseup', () => { isMouseDown = false; });
+            window.addEventListener('mousemove', onMouseMove);
+            window.addEventListener('resize', onResize);
+
+            document.getElementById('btn-paraglider').addEventListener('click', toggleParagliderMode);
+            initCartografo();
+
+            const musicBtn = document.getElementById('btn-music');
+            const musicPanel = document.getElementById('music-panel');
+            musicBtn.addEventListener('click', () => {
+                const open = musicPanel.style.display === 'block';
+                musicPanel.style.display = open ? 'none' : 'block';
+                musicBtn.classList.toggle('active-btn', !open);
+            });
+
+            document.getElementById('btn-start-core').addEventListener('click', function() {
+                initAudioEngine();
+                this.style.display = 'none';
+                document.getElementById('music-controls').style.display = 'block';
+            });
+
+            document.getElementById('nebula-react').addEventListener('input', e => {
+                nebulaReactivity = parseFloat(e.target.value);
+            });
+
+            const radioBtn = document.getElementById('btn-radio');
+            const radioPanel = document.getElementById('radio-panel');
+            radioBtn.addEventListener('click', () => {
+                const open = radioPanel.style.display === 'block';
+                radioPanel.style.display = open ? 'none' : 'block';
+                radioBtn.classList.toggle('active-btn', !open);
+            });
+
+            document.getElementById('btn-connect-radio').addEventListener('click', connectRadio);
+            document.getElementById('vol-radio').addEventListener('input', e => {
+                if (radioGain) radioGain.gain.setValueAtTime(parseFloat(e.target.value), audioCtx.currentTime);
+            });
+            document.getElementById('spectrum-react').addEventListener('input', e => {
+                spectrumReactivity = parseFloat(e.target.value);
+            });
+
+            const settingsBtn = document.getElementById('btn-settings');
+            const settingsPanel = document.getElementById('settings-panel');
+            settingsBtn.addEventListener('click', () => {
+                const open = settingsPanel.style.display === 'block';
+                settingsPanel.style.display = open ? 'none' : 'block';
+                settingsBtn.classList.toggle('active-btn', !open);
+            });
+
+            // Brillo/saturación/contraste: filtro CSS sobre el <canvas>. Es liviano (no
+            // agrega un pase de post-proceso al WebGL) y corrige el look final completo.
+            function applyVisualFilter() {
+                const b = document.getElementById('cfg-brightness').value;
+                const s = document.getElementById('cfg-saturation').value;
+                const c = document.getElementById('cfg-contrast').value;
+                renderer.domElement.style.filter = `brightness(${b}%) saturate(${s}%) contrast(${c}%)`;
+            }
+            ['cfg-brightness', 'cfg-saturation', 'cfg-contrast'].forEach(id => {
+                document.getElementById(id).addEventListener('input', e => {
+                    document.getElementById('val-' + id.replace('cfg-', '')).innerText = e.target.value;
+                    applyVisualFilter();
+                });
+            });
+            document.getElementById('cfg-exposure').addEventListener('input', e => {
+                document.getElementById('val-exposure').innerText = e.target.value;
+                renderer.toneMappingExposure = parseFloat(e.target.value) / 100;
+            });
+            document.getElementById('cfg-wind').addEventListener('input', e => {
+                document.getElementById('val-wind').innerText = parseFloat(e.target.value).toFixed(1);
+                pg.windStrength = parseFloat(e.target.value);
+            });
+            document.getElementById('cfg-thermal').addEventListener('input', e => {
+                document.getElementById('val-thermal').innerText = e.target.value;
+                thermalMultiplier = parseFloat(e.target.value) / 100;
+            });
+            document.getElementById('cfg-ambientwind').addEventListener('input', e => {
+                document.getElementById('val-ambientwind').innerText = e.target.value;
+                ambientWindMultiplier = parseFloat(e.target.value) / 100;
+            });
+            document.getElementById('btn-reset-settings').addEventListener('click', () => {
+                const defaults = { 'cfg-brightness': 100, 'cfg-saturation': 100, 'cfg-contrast': 100, 'cfg-exposure': 100, 'cfg-wind': 6, 'cfg-thermal': 100, 'cfg-ambientwind': 100 };
+                for (const [id, val] of Object.entries(defaults)) {
+                    document.getElementById(id).value = val;
+                    document.getElementById(id).dispatchEvent(new Event('input'));
+                }
+            });
+
+            setTimeout(() => {
+                const loader = document.getElementById('loading');
+                loader.style.opacity = '0';
+                setTimeout(() => loader.style.display = 'none', 1000);
+            }, 800);
+
+            animate();
+        }
+
+        function onResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // =====================================================================
+        // COSMOS — estrellas + nebulosas giratorias (recuperadas de v6)
+        // =====================================================================
+        // ---------------------------------------------------------------
+        // PÚLSARES POR INSTRUMENTO
+        // Cada instrumento del jam tiene SU propio púlsar en el cosmos.
+        // Como cada uno vibra en su propio patrón rítmico, el cielo entero
+        // se convierte en la partitura: ves quién está tocando y a qué ritmo.
+        // ---------------------------------------------------------------
+        const INSTRUMENT_PULSARS = [
+            { name: 'kick',    color: 0xff0055, size: 46 },
+            { name: 'bass',    color: 0xffaa00, size: 52 },
+            { name: 'snare',   color: 0x00ffff, size: 34 },
+            { name: 'keys',    color: 0x00ff66, size: 30 },
+            { name: 'scratch', color: 0xffcc00, size: 26 },
+            { name: 'horns',   color: 0xffffff, size: 60 }
+        ];
+        const NEBULAS_PER_INSTRUMENT = 3; // 6 instrumentos x 3 = 18 nebulosas, TODAS reactivas
+
+        function makeNebula({ colorHex, baseSize, instrument, flattening }) {
+            const baseColor = new THREE.Color(colorHex);
+            const pGeo = new THREE.BufferGeometry();
+            const PARTS = 500;
+            const pPos = new Float32Array(PARTS * 3);
+            const pCol = new Float32Array(PARTS * 3);
+
+            for (let j = 0; j < PARTS; j++) {
+                // pow(random, 2.5) concentra las partículas al centro: núcleo denso + halo
+                const r = Math.pow(Math.random(), 2.5) * 1400;
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.random() * Math.PI;
+                pPos[j*3]   = r * Math.sin(phi) * Math.cos(theta);
+                pPos[j*3+1] = r * Math.sin(phi) * Math.sin(theta) * flattening;
+                pPos[j*3+2] = r * Math.cos(phi);
+                const c = baseColor.clone().offsetHSL((Math.random()-0.5)*0.1, 0, (Math.random()-0.5)*0.25);
+                pCol[j*3] = c.r; pCol[j*3+1] = c.g; pCol[j*3+2] = c.b;
+            }
+            pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+            pGeo.setAttribute('color', new THREE.BufferAttribute(pCol, 3));
+
+            // size queda FIJO durante toda la vida del púlsar: los píxeles nunca engordan.
+            const pMat = new THREE.PointsMaterial({
+                size: baseSize, vertexColors: true, transparent: true, opacity: 0,
+                blending: THREE.AdditiveBlending, depthWrite: false, fog: false
+            });
+
+            const points = new THREE.Points(pGeo, pMat);
+            const group = new THREE.Group();
+            group.position.setFromSphericalCoords(
+                11000 + Math.random() * 3500,
+                0.35 + Math.random() * (Math.PI - 0.7),   // evita los polos: quedan a la vista
+                Math.random() * Math.PI * 2
+            );
+            group.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, Math.random()*Math.PI);
+            group.add(points);
+            cosmosGroup.add(group);
+
+            const baseSpin = (Math.random() - 0.5) * 0.30; // rad/s en reposo
+
+            nebulas.push({
+                group, points, mat: pMat, baseSize,
+                instrument: instrument || null,
+                baseSpin,
+                spin: baseSpin,
+                pulse: 0,
+                // Unos respiran hacia afuera y otros hacia adentro: el cielo no late al unísono
+                breathe: Math.random() > 0.5 ? 1 : -1,
+                flipNext: false
+            });
+        }
+
+        function createCosmos() {
+            cosmosGroup = new THREE.Group();
+            scene.add(cosmosGroup);
+
+            const starGeo = new THREE.BufferGeometry();
+            const starCount = 7000;
+            const starPos = new Float32Array(starCount * 3);
+            for (let i = 0; i < starCount; i++) {
+                const r = 12000 + Math.random() * 4000;
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2 * Math.random() - 1);
+                starPos[i*3]   = r * Math.sin(phi) * Math.cos(theta);
+                starPos[i*3+1] = r * Math.sin(phi) * Math.sin(theta);
+                starPos[i*3+2] = r * Math.cos(phi);
+            }
+            starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+            starsMat = new THREE.PointsMaterial({ color: 0xffffff, size: 3.0, transparent: true, opacity: 0, fog: false });
+            cosmosGroup.add(new THREE.Points(starGeo, starsMat));
+
+            // Cada instrumento tiene una FAMILIA de nebulosas (no una sola): así su beat
+            // mueve varias zonas del cielo a la vez y la reactividad se ve repartida.
+            INSTRUMENT_PULSARS.forEach(p => {
+                for (let k = 0; k < NEBULAS_PER_INSTRUMENT; k++) {
+                    makeNebula({
+                        colorHex: p.color,
+                        baseSize: p.size * (0.75 + Math.random() * 0.5),
+                        instrument: p.name,
+                        flattening: 0.3 + Math.random() * 0.4
+                    });
+                }
+            });
+        }
+
+        function createWindVFX() {
+            windVFXGroup = new THREE.Group();
+            scene.add(windVFXGroup);
+            const lineGeo = new THREE.PlaneGeometry(0.05, 4);
+            for (let i = 0; i < 80; i++) {
+                const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.0, depthWrite: false, fog: false });
+                const line = new THREE.Mesh(lineGeo, mat);
+                line.userData = {
+                    offsetX: (Math.random() - 0.5) * 30,
+                    offsetY: (Math.random() - 0.5) * 15,
+                    offsetZ: (Math.random() - 0.5) * 30,
+                    speed: 10 + Math.random() * 15
+                };
+                windVFXGroup.add(line);
+                windParticles.push(line);
+            }
+        }
+
+        // =====================================================================
+        // NUBES — grises comunes + tormentas oscuras que se agrupan entre sí
+        // =====================================================================
+        const CLOUD_GRAY_LOW   = new THREE.Color(0xf5f5f5);
+        const CLOUD_TERRAIN_CLEARANCE = 35; // m mínimos sobre el relieve local, para que no lo atraviesen
+        const CLOUD_GRAY_HIGH  = new THREE.Color(0xc4c9d0);
+        const CLOUD_STORM_LOW  = new THREE.Color(0x3a3f4b);
+        const CLOUD_STORM_HIGH = new THREE.Color(0x14151c);
+
+        function spawnCloudPuffs(cloudGroup, mat, baseScale, numPuffs, spread, heightSpread) {
+            const geos = [];
+            for (let i = 0; i < numPuffs; i++) {
+                const geo = new THREE.SphereGeometry(baseScale * (0.75 + Math.random() * 0.6), 8, 8);
+                const puff = new THREE.Mesh(geo, mat);
+                puff.position.set(
+                    (Math.random() - 0.5) * spread,
+                    Math.random() * heightSpread,
+                    (Math.random() - 0.5) * spread
+                );
+                cloudGroup.add(puff);
+                geos.push(geo);
+            }
+            return geos;
+        }
+
+        function createCloud(cx, cz, chunkKey, far) {
+            const isStorm = Math.random() < 0.22;
+            const cloudGroup = new THREE.Group();
+            let worldX = cx * CHUNK_SIZE + (Math.random() - 0.5) * CHUNK_SIZE;
+            let worldZ = cz * CHUNK_SIZE + (Math.random() - 0.5) * CHUNK_SIZE;
+
+            let altitude;
+            if (isStorm) {
+                // Las tormentas vuelan bajo y pesado, cargadas de agua.
+                altitude = 160 + Math.random() * 90;
+            } else {
+                const layer = Math.random();
+                altitude = layer < 0.4 ? 190 + Math.random()*80
+                         : layer < 0.8 ? 320 + Math.random()*90
+                         :               470 + Math.random()*120;
+            }
+
+            // AGRUPAMIENTO: una tormenta nueva tiene buena chance de nacer cerca de
+            // otra tormenta existente en vez de en una posición puramente aleatoria.
+            // Repetido en el tiempo, esto hace que se vayan formando cúmulos de lluvia
+            // orgánicamente a medida que el jugador sobrevuela la zona.
+            if (isStorm) {
+                const storms = activeClouds.filter(c => c.type === 'storm');
+                if (storms.length > 0 && Math.random() < 0.55) {
+                    const anchor = storms[Math.floor(Math.random() * storms.length)];
+                    worldX = anchor.mesh.position.x + (Math.random() - 0.5) * 260;
+                    worldZ = anchor.mesh.position.z + (Math.random() - 0.5) * 260;
+                    altitude = anchor.mesh.position.y + (Math.random() - 0.5) * 40;
+                }
+            }
+
+            cloudGroup.position.set(worldX, altitude, worldZ);
+            cloudGroup.userData.baseY = altitude;
+
+            const cloudMat = new THREE.MeshStandardMaterial({
+                color: isStorm ? CLOUD_STORM_HIGH.clone() : CLOUD_GRAY_HIGH.clone(),
+                transparent: true, opacity: isStorm ? 0.82 : 0.6, roughness: 1.0
+            });
+            cloudMat.onBeforeCompile = worldCurvatureShader.onBeforeCompile;
+
+            const baseScale = isStorm ? 14 + Math.random() * 14 : 8 + Math.random() * 12;
+            let numPuffs = isStorm ? 7 + Math.floor(Math.random() * 6) : 4 + Math.floor(Math.random() * 5);
+            if (far) numPuffs = Math.max(3, Math.floor(numPuffs * 0.5)); // menos esferas: nube lejana, más barata
+            const spread = isStorm ? 60 : 40;
+            const heightSpread = isStorm ? 22 : 15;
+            spawnCloudPuffs(cloudGroup, cloudMat, baseScale, numPuffs, spread, heightSpread);
+
+            cloudsRoot.add(cloudGroup);
+
+            // Franja de lluvia: 8 líneas finas colgando bajo la nube, ocultas por defecto
+            // (opacity 0). Solo se hacen visibles cuando la nube se pone lo bastante negra
+            // (ver animate()). Comparten un único material por nube — barato.
+            const rainMat = new THREE.MeshBasicMaterial({ color: 0x8fa3c8, transparent: true, opacity: 0, depthWrite: false, fog: false });
+            const rainStreaks = [];
+            const streakGeo = new THREE.PlaneGeometry(0.4, 14);
+            for (let i = 0; i < 8; i++) {
+                const streak = new THREE.Mesh(streakGeo, rainMat);
+                streak.userData.baseOffsetY = -(20 + Math.random() * 30);
+                streak.position.set((Math.random() - 0.5) * spread * 1.2, streak.userData.baseOffsetY, (Math.random() - 0.5) * spread * 1.2);
+                cloudGroup.add(streak);
+                rainStreaks.push(streak);
+            }
+
+            // Rumbo propio ligeramente distinto al del viento de ladera: da variedad,
+            // no todas las nubes viajan en fila india.
+            const jitter = (Math.random() - 0.5) * 0.4;
+            const driftDir = new THREE.Vector3(pg.windDir.x + jitter, 0, pg.windDir.z - jitter).normalize();
+
+            // Negrura: parte cerca del valor de su tipo, pero de ahí en más deriva sola,
+            // muy lento y al azar, entre blanca (0) y negra cargada de lluvia (1).
+            const initialBlack = isStorm ? 0.65 + Math.random() * 0.25 : 0.05 + Math.random() * 0.2;
+
+            activeClouds.push({
+                mesh: cloudGroup, mat: cloudMat, type: isStorm ? 'storm' : 'gray',
+                chunkKey, driftDir, driftSpeed: (isStorm ? 3 : 5) + Math.random() * 6,
+                baseScale, densityGlow: 0,
+                breathe: Math.random() > 0.5 ? 1 : -1,
+                blackness: initialBlack, blackTarget: initialBlack, blackTimer: 20 + Math.random() * 40,
+                rainMat, rainStreaks
+            });
+        }
+
+        // =====================================================================
+        // TERRENO — color por altura (lerp) + mezcla de roca por PENDIENTE
+        // =====================================================================
+        const colorSnow      = new THREE.Color(0xffffff);
+        const colorRock      = new THREE.Color(0x554433);
+        const colorGrass     = new THREE.Color(0x4ade80);
+        const colorSand      = new THREE.Color(0xe5e5cb);
+        const colorWaterEdge = new THREE.Color(0x2288aa);
+        const colorInk       = new THREE.Color(0x1c1612);   // sepia de tinta (Tinta Viva)
+
+        // ¿Este chunk toca algún dibujo? (25 muestras, barato)
+        function chunkHasInk(cx, cz) {
+            if (!TINTA.ready) return false;
+            for (let a = 0; a <= 4; a++) for (let b = 0; b <= 4; b++) {
+                if (tintaSample((cx - 0.5 + a / 4) * CHUNK_SIZE, (cz - 0.5 + b / 4) * CHUNK_SIZE) && TINTA.lastMask > 0.05) return true;
+            }
+            return false;
+        }
+        function desiredRes(dist, ink) {
+            if (ink && dist <= INK_FINE_DIST) return CHUNK_RES_INK;
+            return dist > LOD_DISTANCE ? CHUNK_RES_FAR : CHUNK_RES_NEAR;
+        }
+
+        // FALDÓN: tira vertical bajo el borde del chunk. Tapa las grietas entre chunks de
+        // distinta resolución (con crestas de tinta empinadas se veía el cielo por ahí).
+        const globalSkirtMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, metalness: 0.0, side: THREE.DoubleSide });
+        globalSkirtMat.onBeforeCompile = worldCurvatureShader.onBeforeCompile;
+        SHARED_MATS.add(globalSkirtMat);
+        function buildSkirt(geo, res, depth) {
+            const P = geo.attributes.position.array, C = geo.attributes.color.array, N = geo.attributes.normal.array;
+            const row = res + 1, edges = [[], [], [], []];
+            for (let k = 0; k <= res; k++) {
+                edges[0].push(k); edges[1].push(res * row + k);
+                edges[2].push(k * row); edges[3].push(k * row + res);
+            }
+            const pos = [], col = [], nor = [], idx = [];
+            let base = 0;
+            for (const e of edges) {
+                for (const i of e) {
+                    for (const dy of [0, -depth]) {
+                        pos.push(P[i * 3], P[i * 3 + 1] + dy, P[i * 3 + 2]);
+                        col.push(C[i * 3], C[i * 3 + 1], C[i * 3 + 2]);
+                        nor.push(N[i * 3], N[i * 3 + 1], N[i * 3 + 2]);
+                    }
+                }
+                for (let k = 0; k < e.length - 1; k++) {
+                    const a = base + k * 2, b = a + 2;
+                    idx.push(a, a + 1, b, b, a + 1, b + 1);
+                }
+                base += e.length * 2;
+            }
+            const g = new THREE.BufferGeometry();
+            g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+            g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+            g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+            g.setIndex(idx);
+            return g;
+        }
+
+        function createChunk(cx, cz, chunkDist, opt = {}) {
+            const group = new THREE.Group();
+            const ink = opt.ink !== undefined ? opt.ink : chunkHasInk(cx, cz);
+            const res = opt.res || desiredRes(chunkDist, ink);
+
+            const terrainGeo = new THREE.PlaneGeometry(CHUNK_SIZE, CHUNK_SIZE, res, res);
+            terrainGeo.rotateX(-Math.PI / 2);
+
+            const vertices = terrainGeo.attributes.position.array;
+            const colors = new Float32Array(vertices.length);
+            const treePositions = [];
+            // MISMO BUG QUE LAS NUBES: chunkDist<=6 nunca se cumple para chunks nuevos en
+            // vuelo (nacen en el borde, dist~9-10) — por eso los árboles desaparecían tras
+            // la carga inicial. Ahora siempre se siembran; solo baja la densidad si nace lejos.
+            const wantTrees = !opt.keepTrees;   // en una mejora de resolución se conservan los árboles ya sembrados
+            const treeDensity = chunkDist > LOD_DISTANCE ? 0.35 : 1.0;
+
+            const col = new THREE.Color();
+            const inkV = new Float32Array(vertices.length / 3);
+            const islV = new Array(vertices.length / 3), mV = new Float32Array(vertices.length / 3);   // EDITOR: carta de colores por dibujo
+
+            // --- PASADA 1: altura (solo dibujos) + tinta del trazo ---
+            for (let i = 0; i < vertices.length; i += 3) {
+                vertices[i + 1] = noise.get(vertices[i] + cx * CHUNK_SIZE, vertices[i + 2] + cz * CHUNK_SIZE);
+                inkV[i / 3] = TINTA.lastInk; islV[i / 3] = TINTA.lastIsland; mV[i / 3] = TINTA.lastMask;
+            }
+            terrainGeo.computeVertexNormals();
+            const normals = terrainGeo.attributes.normal.array;
+
+            // --- PASADA 2: tinta hipsométrica / batimétrica × sombreado de relieve (luz NO) + bosque ---
+            const LT = TOPO.LIGHT;
+            for (let i = 0; i < vertices.length; i += 3) {
+                const h = vertices[i + 1], ny = normals[i + 1];
+                topoColorAt(h, islV[i / 3], mV[i / 3], col);
+                const dot = normals[i] * LT.x + ny * LT.y + normals[i + 2] * LT.z;
+                const shade = THREE.MathUtils.clamp(0.3 + dot, 0.35, 1.25);
+                const k = h > SEA_LEVEL ? TOPO.HILLSHADE : TOPO.HILLSHADE * 0.4;
+                col.multiplyScalar(1 + (shade - 1) * k);
+                colors[i] = col.r; colors[i+1] = col.g; colors[i+2] = col.b;
+
+                const e = h - SEA_LEVEL;   // bosque solo en la franja verde y en pendientes suaves
+                if (wantTrees && e > 3 && e < 150 && ny > 0.85 && Math.random() > (1 - (1 - 0.985) * treeDensity)) {
+                    treePositions.push({ x: vertices[i], y: h, z: vertices[i+2] });
+                }
+            }
+
+            terrainGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            terrainGeo.setAttribute('aInk', new THREE.BufferAttribute(inkV, 1));
+
+            group.add(new THREE.Mesh(terrainGeo, globalTerrainMat));
+            group.add(new THREE.Mesh(buildSkirt(terrainGeo, res, 30), globalSkirtMat));
+
+            const waterMesh = new THREE.Mesh(globalWaterGeo, globalWaterMat);
+            waterMesh.position.y = SEA_LEVEL;
+            group.add(waterMesh);
+
+            if (treePositions.length > 0) {
+                const trunkInst = new THREE.InstancedMesh(globalTrunkGeo, globalTrunkMat, treePositions.length);
+                const leafInst = new THREE.InstancedMesh(globalLeafGeo, globalLeafMat, treePositions.length);
+                const dummy = new THREE.Object3D();
+                for (let i = 0; i < treePositions.length; i++) {
+                    const pos = treePositions[i];
+                    const scale = 0.7 + Math.random() * 0.6;
+                    dummy.position.set(pos.x, pos.y + 2*scale, pos.z);
+                    dummy.scale.set(scale, scale, scale);
+                    dummy.updateMatrix();
+                    trunkInst.setMatrixAt(i, dummy.matrix);
+                    dummy.position.set(pos.x, pos.y + 7.5*scale, pos.z);
+                    dummy.updateMatrix();
+                    leafInst.setMatrixAt(i, dummy.matrix);
+                }
+                group.add(trunkInst, leafInst);
+            }
+
+            const chunkKey = `${cx},${cz}`;
+            // BUG ENCONTRADO: el burst de carga inicial procesa los chunks ordenados de
+            // cerca a lejos, así que muchos nacen con chunkDist<8 y sí tienen nube.
+            // En vuelo normal, un chunk NUEVO casi siempre entra al anillo de visión
+            // justo en el borde (dist~9-10) y se crea de inmediato ahí — nunca bajaba
+            // de 8, así que nunca más aparecía una nube nueva. Ahora la probabilidad de
+            // nube es independiente de la distancia; solo bajamos su complejidad (LOD)
+            // si nace lejos, igual que ya hacíamos con el terreno.
+            if (!opt.noCloud && Math.random() > 0.55) createCloud(cx, cz, chunkKey, chunkDist > LOD_DISTANCE);
+
+            group.position.set(cx * CHUNK_SIZE, -300, cz * CHUNK_SIZE);
+            scene.add(group);
+
+            return { mesh: group, terrainGeo, ready: false, key: chunkKey, res, ink };
+        }
+
+        function updateChunks() {
+            const px = Math.round(VIEW.focusX / CHUNK_SIZE);   // CARTÓGRAFO: foco = piloto, o el dibujo en vista de ave
+            const pz = Math.round(VIEW.focusZ / CHUNK_SIZE);
+
+            for (let x = px - VIEW_DISTANCE; x <= px + VIEW_DISTANCE; x++) {
+                for (let z = pz - VIEW_DISTANCE; z <= pz + VIEW_DISTANCE; z++) {
+                    const key = `${x},${z}`;
+                    const dist = Math.hypot(x - px, z - pz);
+                    if (dist > VIEW_DISTANCE) continue;
+                    if (!chunks.has(key) && !chunkQueue.some(q => q.key === key)) {
+                        chunkQueue.push({ key, x, z, dist });
+                    }
+                }
+            }
+            chunkQueue.sort((a, b) => a.dist - b.dist);
+
+            for (const [key, chunk] of chunks) {
+                const [cx, cz] = key.split(',').map(Number);
+                const dist = Math.hypot(cx - px, cz - pz);
+
+                if (dist > VIEW_DISTANCE + 1) {
+                    const toRemove = activeClouds.filter(c => c.chunkKey === key);
+                    toRemove.forEach(c => {
+                        cloudsRoot.remove(c.mesh);
+                        c.mesh.traverse(o => { if (o.isMesh) o.geometry.dispose(); });
+                        c.mat.dispose();
+                        c.rainMat.dispose();
+                    });
+                    activeClouds = activeClouds.filter(c => c.chunkKey !== key);
+
+                    scene.remove(chunk.mesh);
+                    // Solo se liberan los recursos propios del chunk. Las geometrías y
+                    // materiales globales (agua, tronco, hoja, terreno) se comparten y NO se tocan.
+                    chunk.terrainGeo.dispose();
+                    chunk.mesh.traverse(o => {
+                        if (!o.isMesh) return;
+                        if (o.geometry && !SHARED_GEOS.has(o.geometry) && o.geometry !== chunk.terrainGeo) o.geometry.dispose();
+                        if (o.material && !SHARED_MATS.has(o.material)) o.material.dispose();
+                    });
+                    chunks.delete(key);
+                } else if (chunk.ready && desiredRes(dist, chunk.ink) > chunk.res) {
+                    // LOD que SUBE: antes un chunk nacido lejos (32) quedaba así para siempre,
+                    // incluso al pasar por encima — ese era el serrucho de la captura.
+                    if (!upgradeQueue.some(u => u.key === key)) upgradeQueue.push({ key, x: cx, z: cz, dist });
+                } else if (!chunk.ready) {
+                    chunk.mesh.position.y += (0 - chunk.mesh.position.y) * 0.05;
+                    if (chunk.mesh.position.y > -1.0) { chunk.mesh.position.y = 0; chunk.ready = true; }
+                }
+            }
+        }
+
+        let upgradeQueue = [];
+        function upgradeChunk(u) {
+            const old = chunks.get(u.key);
+            if (!old) return;
+            const px = Math.round(VIEW.focusX / CHUNK_SIZE), pz = Math.round(VIEW.focusZ / CHUNK_SIZE);
+            const dist = Math.hypot(u.x - px, u.z - pz);
+            const want = desiredRes(dist, old.ink);
+            if (want <= old.res) return;
+            const fresh = createChunk(u.x, u.z, dist, { res: want, ink: old.ink, keepTrees: true, noCloud: true });
+            fresh.mesh.position.y = 0; fresh.ready = true;
+            // los árboles del chunk viejo se mudan tal cual (sin "pop" de bosque)
+            old.mesh.children.filter(o => o.isInstancedMesh).forEach(o => fresh.mesh.add(o));
+            scene.remove(old.mesh);
+            old.terrainGeo.dispose();
+            old.mesh.traverse(o => { if (o.isMesh && !o.isInstancedMesh && o.geometry && !SHARED_GEOS.has(o.geometry)) o.geometry.dispose(); });
+            chunks.set(u.key, fresh);
+        }
+
+        function processChunkQueue() {
+            // EDITOR: chunks a rehacer tras editar un mapa (2 por frame, los más cercanos primero)
+            if (regenQueue.length) {
+                const fx = VIEW.focusX / CHUNK_SIZE, fz = VIEW.focusZ / CHUNK_SIZE;
+                const dk = k => { const [a, b] = k.split(',').map(Number); return Math.hypot(a - fx, b - fz); };
+                regenQueue.sort((a, b) => dk(a) - dk(b));
+                for (let n = 0; n < 2 && regenQueue.length; n++) regenChunk(regenQueue.shift());
+            }
+            // Mejoras de resolución: una por frame, la más cercana primero, solo si no hay carga pendiente
+            if (chunkQueue.length < 3 && upgradeQueue.length) {
+                upgradeQueue.sort((a, b) => a.dist - b.dist);
+                upgradeChunk(upgradeQueue.shift());
+            }
+            if (chunkQueue.length === 0) return;
+            // Carga inicial (cola enorme): varios chunks por frame. En vuelo: uno, para no tironear.
+            const budget = chunkQueue.length > 60 ? 4 : 1;
+            for (let i = 0; i < budget && chunkQueue.length > 0; i++) {
+                const next = chunkQueue.shift();
+                if (!chunks.has(next.key)) chunks.set(next.key, createChunk(next.x, next.z, next.dist));
+            }
+        }
+
+        // =====================================================================
+        // ATMÓSFERA — cielo derivado de la ELEVACIÓN REAL del sol
+        // =====================================================================
+        // Azul de día más pálido: 0x60a5fa era un azul muy saturado que, combinado con
+        // la niebla, lavaba toda la escena. Un celeste más claro deja más contraste
+        // para que los cerros lejanos se distingan del cielo en vez de fundirse con él.
+        const dayC    = new THREE.Color(0x9dcdf5);
+        const sunsetC = new THREE.Color(0xf97316);
+        const nightC  = new THREE.Color(0x050510);
+        const skyColor = new THREE.Color();
+
+        function updateAtmosphere(dt) {
+            dayTime += dt;
+            const cycle = (dayTime % dayDuration) / dayDuration;
+            const angle = cycle * Math.PI * 2;
+
+            // Dirección del sol sobre el plano orbital fijo del mundo
+            const sunDir = orbitU.clone().multiplyScalar(Math.cos(angle))
+                          .addScaledVector(orbitV, Math.sin(angle));
+
+            const elev = sunDir.y; // negativo = bajo el horizonte
+            sunElevation = elev;   // las térmicas del parapente dependen de esto
+            // ¿Está subiendo o bajando? Derivada de la elevación respecto al ángulo.
+            const climbing = (-orbitU.y * Math.sin(angle) + orbitV.y * Math.cos(angle)) > 0;
+
+            // El cielo ahora SIGUE al sol en vez de usar rangos hardcodeados
+            const dayW  = smoothstep(0.02, 0.32, elev);
+            const duskW = 1.0 - Math.min(1, Math.abs(elev) / 0.22);
+
+            skyColor.copy(nightC).lerp(dayC, dayW).lerp(sunsetC, duskW * 0.85);
+
+            const sunP = Math.max(0, smoothstep(-0.05, 0.25, elev));
+            const moonP = Math.max(0, smoothstep(0.05, -0.15, elev));
+            const starOpacity = THREE.MathUtils.clamp(1.0 - dayW * 1.4, 0, 1);
+
+            let timeLabel;
+            if (elev > 0.32) timeLabel = "Día";
+            else if (elev > 0.02) timeLabel = climbing ? "Amanecer" : "Atardecer";
+            else if (elev > -0.15) timeLabel = "Crepúsculo";
+            else timeLabel = "Noche";
+
+            if (scene.background) {
+                scene.background.copy(skyColor);
+                scene.fog.color.copy(skyColor);
+            }
+
+            // Astros anclados a la cámara en POSICIÓN, pero orbitando el eje del mundo
+            sunMesh.position.copy(camera.position).addScaledVector(sunDir, ORBIT_RADIUS);
+            moonMesh.position.copy(camera.position).addScaledVector(sunDir, -ORBIT_RADIUS);
+
+            // Las luces apuntan a la cámara: dirección de iluminación siempre correcta
+            sunLight.position.copy(sunMesh.position);
+            sunTarget.position.copy(camera.position);
+            moonLight.position.copy(moonMesh.position);
+            moonTarget.position.copy(camera.position);
+
+            sunLight.intensity = sunP * 1.5;
+            moonLight.intensity = moonP * 0.35;
+            ambientLight.intensity = 0.14 + (sunP * 0.4) + (moonP * 0.1);
+
+            // Luz cálida al ras del horizonte
+            sunLight.color.setHex(0xffeedd).lerp(new THREE.Color(0xff8844), duskW * 0.7);
+
+            starsMat.opacity = starOpacity;
+
+            if (cosmosGroup) {
+                cosmosGroup.position.copy(camera.position);
+                nebulas.forEach(n => {
+                    // El pulso decae; el giro vuelve elásticamente a su velocidad de reposo
+                    n.pulse = THREE.MathUtils.lerp(n.pulse, 0, dt * 3.2);
+                    n.spin  = THREE.MathUtils.lerp(n.spin, n.baseSpin, dt * 1.6);
+
+                    n.points.rotation.y += n.spin * dt;
+                    n.points.rotation.z += n.spin * 0.35 * dt;
+
+                    const react = n.instrument ? n.pulse * nebulaReactivity : 0;
+
+                    // EXPANSIÓN / CONTRACCIÓN del cúmulo entero.
+                    // El tamaño de cada punto (mat.size) NO se toca nunca: los píxeles
+                    // conservan su grano y la nebulosa respira de verdad.
+                    n.points.scale.setScalar(1 + react * 0.5 * n.breathe);
+
+                    n.mat.opacity = starOpacity * (0.55 + react * 0.55);
+                });
+            }
+
+            // Densidad de tormentas: cuantas más tormentas vecinas, más oscura y pesada
+            // se ve la nube — así los cúmulos que se agruparon se leen como núcleo de lluvia.
+            const storms = activeClouds.filter(c => c.type === 'storm');
+            storms.forEach(c => {
+                let neighbors = 0;
+                for (const o of storms) {
+                    if (o !== c && c.mesh.position.distanceTo(o.mesh.position) < 300) neighbors++;
+                }
+                c.densityGlow = THREE.MathUtils.lerp(c.densityGlow, Math.min(1, neighbors / 3), 0.04);
+            });
+
+            activeClouds.forEach(c => {
+                // El color mezcla gris claro <-> negro tormenta según blackness, que deriva
+                // solo con el tiempo (ver animate()) — no según el tipo fijo con que nació.
+                c.mat.color.copy(CLOUD_GRAY_LOW).lerp(skyColor, 0.3)
+                    .lerp(CLOUD_STORM_HIGH.clone().lerp(CLOUD_STORM_LOW, c.densityGlow), c.blackness);
+                c.mat.opacity = THREE.MathUtils.lerp(0.55 - (starOpacity * 0.25), 0.65 + c.densityGlow * 0.3 - (starOpacity * 0.08), c.blackness);
+            });
+
+            const timeEl = document.getElementById('time-status');
+            timeEl.innerText = timeLabel;
+            timeEl.style.color = starOpacity > 0.5 ? "#c084fc" : "#fbbf24";
+        }
+
+        // =====================================================================
+        // PARAPENTE — física de v6 + rotor de sotavento de v2
+        // =====================================================================
+        function toggleParagliderMode() {
+            isParagliding = !isParagliding;
+            const btn = document.getElementById('btn-paraglider');
+            const inst = document.getElementById('instruments');
+            const ctrls = document.getElementById('controls');
+            const status = document.getElementById('mode-status');
+
+            if (isParagliding) {
+                btn.classList.add('active-btn');
+                inst.style.display = 'block';
+                ctrls.innerHTML = `
+                    <p><strong>Click + arrastrar:</strong> mirar libremente</p>
+                    <p><strong>Shift + arrastrar:</strong> pilotar la vela</p>
+                    <p><strong>A / D:</strong> virar · <strong>W / S:</strong> picar / frenar</p>
+                    <p><strong>Rueda / V:</strong> ave ⇄ 3ª ⇄ 1ª persona</p>
+                    <p><strong>5:</strong> águila · <strong>M:</strong> mapa · <strong>E:</strong> editor</p>
+                    <p class="opacity-70 mt-2">Busca ladera de cara al viento para ganar altura.</p>
+                `;
+                status.innerText = "Modo: piloto de parapente";
+
+                pg.velocity.set(0, 0, 0);
+                pg.pitchAngle = 0; pg.rollAngle = 0; pg.targetRoll = 0; pg.targetPitch = 0;
+                cameraRotY = camera.rotation.y; cameraRotX = 0;
+
+                const groundY = Math.max(SEA_LEVEL, noise.get(camera.position.x, camera.position.z));
+                if (camera.position.y < groundY + 50) camera.position.y = groundY + 250;
+            } else {
+                btn.classList.remove('active-btn');
+                inst.style.display = 'none';
+                ctrls.innerHTML = `
+                    <p><strong>Click + arrastrar:</strong> mirar</p>
+                    <p><strong>WASD:</strong> moverse</p>
+                    <p><strong>Z / X:</strong> subir / bajar</p>
+                    <p><strong>Rueda / V:</strong> ave ⇄ 3ª ⇄ 1ª persona</p>
+                    <p><strong>5:</strong> águila · <strong>M:</strong> mapa · <strong>E:</strong> editor</p>
+                `;
+                status.innerText = "Modo: exploración libre";
+                camera.rotation.z = 0;
+                windParticles.forEach(p => p.material.opacity = 0);
+            }
+        }
+
+        function onMouseMove(e) {
+            if (!isMouseDown || MAP.open) return;
+            // ÁGUILA: arrastrar gira e inclina la cámara alrededor del piloto (Shift en parapente sigue pilotando)
+            if (VIEW.eagle && !(isParagliding && (keys['ShiftLeft'] || keys['ShiftRight']))) {
+                VIEW.eYaw -= (e.clientX - lastMousePos.x) * 0.004;
+                VIEW.ePitch = THREE.MathUtils.clamp(VIEW.ePitch - (e.clientY - lastMousePos.y) * 0.003, -1.53, -0.45);
+                lastMousePos = { x: e.clientX, y: e.clientY };
+                return;
+            }
+            if (isParagliding && (keys['ShiftLeft'] || keys['ShiftRight'])) {
+                pg.targetRoll  = THREE.MathUtils.clamp(pg.targetRoll  - (e.clientX - lastMousePos.x) * 0.005, -1, 1);
+                pg.targetPitch = THREE.MathUtils.clamp(pg.targetPitch - (e.clientY - lastMousePos.y) * 0.005, -1, 1);
+            } else {
+                cameraRotY -= (e.clientX - lastMousePos.x) * 0.003;
+                cameraRotX = THREE.MathUtils.clamp(cameraRotX - (e.clientY - lastMousePos.y) * 0.003, -1.5, 1.5);
+            }
+            lastMousePos = { x: e.clientX, y: e.clientY };
+        }
+
+        function updateParaglider(dt) {
+            if (!keys['ShiftLeft'] && !keys['ShiftRight']) {
+                pg.targetRoll = THREE.MathUtils.lerp(pg.targetRoll, 0, dt * 2);
+                pg.targetPitch = THREE.MathUtils.lerp(pg.targetPitch, 0, dt * 2);
+            }
+
+            let finalRoll = pg.targetRoll;
+            let finalPitch = pg.targetPitch;
+            if (keys['KeyA']) finalRoll = 1;
+            if (keys['KeyD']) finalRoll = -1;
+            if (keys['KeyW']) finalPitch = 1;
+            if (keys['KeyS']) finalPitch = -0.5;
+
+            pg.rollAngle  = THREE.MathUtils.lerp(pg.rollAngle,  finalRoll * 0.4,  dt * 2);
+            pg.pitchAngle = THREE.MathUtils.lerp(pg.pitchAngle, finalPitch * 0.3, dt * 2);
+
+            cameraRotY += pg.rollAngle * pg.turnSpeed * dt;
+            camera.rotation.z = pg.rollAngle * 0.8;
+
+            // SIGNO DEL CABECEO (bug de la v6):
+            // pitchAngle positivo = picada (más velocidad, más caída), pero la cámara
+            // apuntaba hacia ARRIBA. El piloto arrastraba el mouse hacia arriba creyendo
+            // que subía y en realidad estaba picando: por eso las ascendencias "no
+            // levantaban" en shift+mouse. Ahora frenar mira arriba y picar mira abajo.
+            const totalPitch = THREE.MathUtils.clamp(-pg.pitchAngle + cameraRotX, -Math.PI/2, Math.PI/2);
+            camera.rotation.x = THREE.MathUtils.lerp(camera.rotation.x, totalPitch, dt * 6);
+            camera.rotation.y = cameraRotY;
+
+            const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0,1,0), cameraRotY);
+            const currentSpeed = pg.speed + (pg.pitchAngle * 12);
+            const currentSink  = pg.sinkRate - (pg.pitchAngle * 2) - (Math.abs(pg.rollAngle) * 0.5);
+
+            pg.liftForce = 0;
+            let slopeState = "—";
+
+            const groundY = Math.max(SEA_LEVEL, noise.get(camera.position.x, camera.position.z));   // CARTÓGRAFO: sobre el mar, el piso es el agua
+            const agl = camera.position.y - groundY;
+
+            // LIFT DE LADERA — se mide en la posición ACTUAL, no "más adelante".
+            // Antes usaba un punto proyectado como anticipo, pero eso hacía que la
+            // ascendencia llegara débil y tarde ("casi no se elevó"): el piloto ya
+            // había cruzado la zona de lift antes de que el efecto se sintiera de
+            // verdad. La física real de ladera depende de DÓNDE ESTÁS AHORA: si el
+            // viento pega contra la pendiente bajo tus pies, subes; ahí mismo, ya.
+            const normal = getTerrainNormal(camera.position.x, camera.position.z);
+            const nHoriz = new THREE.Vector3(normal.x, 0, normal.z);
+            const nHorizLen = nHoriz.length();
+            const slopeAngle = Math.acos(THREE.MathUtils.clamp(normal.y, -1, 1)); // 0=llano, PI/2=vertical
+
+            if (nHorizLen > 0.02 && slopeAngle > 0.06) {
+                nHoriz.normalize();
+                // windAlign > 0: el viento sopla HACIA la ladera (contra su normal) = barlovento.
+                // windAlign < 0: el viento sopla saliendo de la ladera = sotavento (rotor).
+                const windAlign = -pg.windDir.dot(nHoriz);
+                const slopeFactor = Math.sin(Math.min(slopeAngle, Math.PI / 2.1));
+
+                // Banda de altura: el lift de ladera es fuerte pegado al relieve y se
+                // apaga con una campana de Gauss al alejarte verticalmente de él —
+                // ni rasando el suelo (ahí hay más bien turbulencia) ni muy arriba.
+                const band = Math.exp(-Math.pow(Math.max(0, agl - 15) / LIFT_BAND_HEIGHT, 2));
+
+                if (windAlign > 0.1) {
+                    pg.liftForce += pg.windStrength * slopeFactor * windAlign * SLOPE_LIFT_K * band;
+                    slopeState = "barlovento ↑";
+                } else if (windAlign < -0.1) {
+                    pg.liftForce -= pg.windStrength * slopeFactor * Math.abs(windAlign) * LEE_SINK_K * band;
+                    slopeState = "sotavento ↓ (rotor)";
+                }
+            }
+
+            // TÉRMICAS — dependen del sol, no de un punto proyectado. Ladera expuesta
+            // al sol y sin agua/bosque encima (roca o tierra descubierta) = columna
+            // de aire caliente. De noche desaparecen del todo.
+            if (sunElevation > 0.04 && groundY > SEA_LEVEL + 4) {
+                const exposure = 1.0 - Math.min(1, Math.abs(normal.y - 0.72) * 2.2);
+                const thermalBand = Math.exp(-Math.pow(agl / 260, 2)) ; // más ancha que el lift de ladera
+                const thermal = THERMAL_STRENGTH * thermalMultiplier * sunElevation * Math.max(0, exposure) * thermalBand;
+                if (thermal > 0.12) {
+                    pg.liftForce += thermal;
+                    if (slopeState === "—") slopeState = "térmica ☀";
+                }
+            }
+
+            // CORRIENTES AMBIENTALES — la "plaga" de burbujas de aire subiendo y
+            // bajando por todo el mapa, no solo en laderas: le da textura y vida al
+            // cielo entero, como el aire real nunca está perfectamente quieto.
+            const ambient = ambientAirField(camera.position.x, camera.position.z, dayTime) * AMBIENT_DRAFT * ambientWindMultiplier;
+            pg.liftForce += ambient;
+            if (slopeState === "—" && Math.abs(ambient) > 0.4) {
+                slopeState = ambient > 0 ? "corriente ↑" : "corriente ↓";
+            }
+
+            // ANTICOLISIÓN — si el relieve JUSTO ADELANTE sube más rápido de lo que
+            // el ala puede trepar, se agrega compresión de aire extra antes del
+            // impacto (así se siente realmente la ladera empujándote hacia arriba
+            // en el último tramo, en vez de estrellarte en línea recta — "choca
+            // directamente con las montañas sin alcanzar a subir antes").
+            const nearAhead = camera.position.clone().addScaledVector(forward, COLLISION_LOOKAHEAD);
+            const nearAheadY = noise.get(nearAhead.x, nearAhead.z);
+            const clearance = camera.position.y - nearAheadY;
+            if (clearance < 20) {
+                const urgency = THREE.MathUtils.clamp((20 - clearance) / 20, 0, 1);
+                pg.liftForce += urgency * urgency * pg.windStrength * COLLISION_LIFT_K * 10;
+                if (urgency > 0.5) slopeState = "compresión ↑ (relieve)";
+            }
+
+            // Efecto suelo muy pegado al terreno
+            if (agl < 25 && agl > -10) {
+                pg.liftForce += (25 - agl) * 0.4;
+            }
+
+            pg.liftForce = THREE.MathUtils.clamp(pg.liftForce, MAX_SINK_AIR, MAX_LIFT);
+
+            const verticalVelocity = currentSink + pg.liftForce;
+            pg.velocity.copy(forward).multiplyScalar(currentSpeed);
+            pg.velocity.y = verticalVelocity;
+            pg.velocity.addScaledVector(pg.windDir, pg.windStrength * 0.2);
+
+            camera.position.addScaledVector(pg.velocity, dt);
+
+            if (camera.position.y < groundY + 2) {
+                camera.position.y = groundY + 2;
+                pg.velocity.y = 0;
+                pg.velocity.x *= 0.9; pg.velocity.z *= 0.9;
+                if (currentSpeed < 2) toggleParagliderMode();
+            }
+
+            document.getElementById('inst-spd').innerText = Math.max(0, currentSpeed * 3.6).toFixed(0);
+            document.getElementById('inst-alt').innerText = camera.position.y.toFixed(0);
+            const varioEl = document.getElementById('inst-var');
+            varioEl.innerText = (verticalVelocity > 0 ? "+" : "") + verticalVelocity.toFixed(1);
+            varioEl.className = "instrument-value " + (verticalVelocity > 0.5 ? 'vario-positive' : (verticalVelocity < -1.5 ? 'vario-negative' : ''));
+            document.getElementById('inst-wind').innerText = `AGL ${Math.max(0, agl).toFixed(0)} m · ladera ${slopeState}`;
+
+            updateWindVFX(dt, verticalVelocity);
+        }
+
+        function updateWindVFX(dt, vario) {
+            windVFXGroup.position.copy(camera.position);
+            windVFXGroup.rotation.y = cameraRotY;
+            const targetOpacity = vario > 2.0 ? Math.min(0.6, (vario - 2.0) * 0.2) : 0.0;
+            windParticles.forEach(p => {
+                p.material.opacity = THREE.MathUtils.lerp(p.material.opacity, targetOpacity, dt * 2);
+                if (p.material.opacity > 0.01) {
+                    p.position.set(p.userData.offsetX, p.userData.offsetY, p.userData.offsetZ);
+                    p.userData.offsetY += p.userData.speed * dt;
+                    p.userData.offsetZ += (pg.speed * 0.5) * dt;
+                    if (p.userData.offsetY > 15) p.userData.offsetY = -15;
+                    if (p.userData.offsetZ > 20) p.userData.offsetZ = -30;
+                }
+            });
+        }
+
+        // =====================================================================
+        // NÚCLEO FUNK
+        // =====================================================================
+        let audioCtx, masterGain, compressor, noiseBuffer;
+        let isAudioPlaying = false;
+
+        // El contexto de audio y el compresor son COMPARTIDOS entre el Núcleo Funk
+        // sintetizado y la radio: cualquiera de los dos que arranque primero los crea.
+        function ensureAudioCtx() {
+            if (audioCtx) return;
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            masterGain = audioCtx.createGain();
+            masterGain.gain.value = document.getElementById('vol-master').value;
+
+            compressor = audioCtx.createDynamicsCompressor();
+            compressor.threshold.setValueAtTime(-12, audioCtx.currentTime);
+            compressor.knee.setValueAtTime(10, audioCtx.currentTime);
+            compressor.ratio.setValueAtTime(6, audioCtx.currentTime);
+            compressor.attack.setValueAtTime(0.003, audioCtx.currentTime);
+            compressor.release.setValueAtTime(0.2, audioCtx.currentTime);
+
+            masterGain.connect(compressor);
+            compressor.connect(audioCtx.destination);
+        }
+
+        const params = { tempo: 90, swing: 0.6, filterMod: 0.3 };
+        const mixer = { bass: 1.0, kick: 0.85, snare: 0.7, scratch: 0.4, keys: 0.5, horns: 0.4 };
+
+        const scaleBase = [41.20, 48.99, 55.00, 61.74, 73.42, 82.41, 97.99];
+        const chords = [ [164.81, 196.00, 246.94], [146.83, 174.61, 220.00], [174.61, 220.00, 261.63] ];
+
+        let activePatterns = {
+            kick:    [1.0, 0.0, 0.0, 0.2, 0.0, 0.0, 0.8, 0.0, 1.0, 0.0, 0.0, 0.4, 0.0, 0.8, 0.0, 0.0],
+            snare:   [0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.3, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.4, 0.0],
+            scratch: [0.0, 0.6, 0.0, 0.8, 0.0, 0.0, 0.0, 0.6, 0.0, 0.8, 0.0, 0.0, 0.5, 0.0, 0.7, 0.0],
+            bass:    [1.0, 0.0, 0.4, 0.8, 0.0, 1.0, 0.3, 0.0, 0.9, 0.0, 0.8, 0.3, 0.0, 0.7, 0.4, 0.0]
+        };
+        let bassMelody = [0, 0, 1, 0, 0, 2, 0, 0, 3, 0, 1, 0, 0, 4, 2, 0];
+
+        function initAudioEngine() {
+            if (isAudioPlaying) return;
+            ensureAudioCtx();
+
+            const bufferSize = audioCtx.sampleRate * 2;
+            noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const output = noiseBuffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2 - 1;
+
+            isAudioPlaying = true;
+            runDirectorLogic();
+            scheduler();
+        }
+
+        // =====================================================================
+        // RADIO TAGUA TAGUA — conexión de streaming + reactividad por espectro
+        // =====================================================================
+        // URL confirmada: la encontré en tu archivo kalpa6_0.html ("Kalpa - Organismo
+        // Final V9"), que ya la usa con este mismo patrón de análisis de espectro.
+        // Zeno.fm normalmente sí envía cabeceras CORS, así que el análisis debería
+        // funcionar (a diferencia de la mayoría de streams shoutcast/icecast sueltos).
+        const RADIO_STREAM_URL = "https://stream.zeno.fm/lsthmognp16uv";
+
+        let radioAudioEl, radioAnalyser, radioGain, radioFreqData;
+        let radioConnected = false;
+        let spectrumReactivity = 0.8;
+        const radioBand = { bass: 0, mid: 0, treble: 0 };
+
+        // Cada banda del espectro mueve la familia de nebulosas de DOS instrumentos,
+        // igual que el Núcleo Funk sintetizado — así conviven ambas fuentes de reactividad.
+        const BAND_INSTRUMENTS = {
+            bass: ['kick', 'bass'],
+            mid: ['snare', 'keys'],
+            treble: ['scratch', 'horns']
+        };
+
+        function connectRadio() {
+            const statusEl = document.getElementById('radio-status');
+            const errEl = document.getElementById('radio-error');
+            const btn = document.getElementById('btn-connect-radio');
+            errEl.style.display = 'none';
+
+            if (!RADIO_STREAM_URL) {
+                errEl.textContent = 'Falta la URL del stream de Radio Tagua Tagua — pégala en RADIO_STREAM_URL dentro del código y recarga.';
+                errEl.style.display = 'block';
+                return;
+            }
+
+            ensureAudioCtx();
+
+            radioAudioEl = new Audio();
+            radioAudioEl.crossOrigin = 'anonymous';
+            radioAudioEl.src = RADIO_STREAM_URL;
+
+            try {
+                const source = audioCtx.createMediaElementSource(radioAudioEl);
+                radioAnalyser = audioCtx.createAnalyser();
+                radioAnalyser.fftSize = 256;
+                radioAnalyser.smoothingTimeConstant = 0.65;
+                radioFreqData = new Uint8Array(radioAnalyser.frequencyBinCount);
+
+                radioGain = audioCtx.createGain();
+                radioGain.gain.value = document.getElementById('vol-radio').value;
+
+                source.connect(radioAnalyser);
+                radioAnalyser.connect(radioGain);
+                // BUG ENCONTRADO ("al sonar la radio no suena el groove"): antes la
+                // radio pasaba por el MISMO compresor que el groove sintetizado. Un
+                // stream de radio es una señal continua de nivel alto — mantenía el
+                // compresor comprimiendo todo el tiempo (threshold -12dB, ratio 6:1),
+                // así que cada golpe del groove, mucho más corto y débil en comparación,
+                // quedaba aplastado casi a silencio por la reducción de ganancia global
+                // del MISMO compresor. La radio ahora va DIRECTO al destino, en paralelo,
+                // sin compartir compresor con el groove — cada uno sale con su propio nivel.
+                radioGain.connect(audioCtx.destination);
+            } catch (err) {
+                errEl.textContent = 'No se pudo enganchar el analizador de espectro: ' + err.message;
+                errEl.style.display = 'block';
+                return;
+            }
+
+            radioAudioEl.addEventListener('error', () => {
+                errEl.textContent = 'La radio no cargó (posible bloqueo CORS o URL caída). Prueba otra URL de stream.';
+                errEl.style.display = 'block';
+                statusEl.textContent = 'Desconectada';
+                radioConnected = false;
+                btn.style.display = 'block';
+                document.getElementById('radio-controls').style.display = 'none';
+            });
+
+            radioAudioEl.play().then(() => {
+                radioConnected = true;
+                statusEl.textContent = 'En vivo — Radio Tagua Tagua';
+                btn.style.display = 'none';
+                document.getElementById('radio-controls').style.display = 'block';
+            }).catch(err => {
+                errEl.textContent = 'El navegador bloqueó la reproducción: ' + err.message;
+                errEl.style.display = 'block';
+            });
+        }
+
+        function updateRadioSpectrum(dt) {
+            if (!radioConnected || !radioAnalyser) return;
+            radioAnalyser.getByteFrequencyData(radioFreqData);
+
+            const bins = radioFreqData.length; // 128 con fftSize 256
+            const bassEnd = Math.floor(bins * 0.12);
+            const midEnd  = Math.floor(bins * 0.45);
+
+            let bassSum = 0, midSum = 0, trebleSum = 0;
+            for (let i = 0; i < bassEnd; i++) bassSum += radioFreqData[i];
+            for (let i = bassEnd; i < midEnd; i++) midSum += radioFreqData[i];
+            for (let i = midEnd; i < bins; i++) trebleSum += radioFreqData[i];
+
+            radioBand.bass   = THREE.MathUtils.lerp(radioBand.bass,   (bassSum / bassEnd) / 255, dt * 6);
+            radioBand.mid    = THREE.MathUtils.lerp(radioBand.mid,    (midSum / (midEnd - bassEnd)) / 255, dt * 6);
+            radioBand.treble = THREE.MathUtils.lerp(radioBand.treble, (trebleSum / (bins - midEnd)) / 255, dt * 6);
+
+            // Nebulosas: cada banda alimenta la familia de instrumentos que le
+            // corresponde, en paralelo a lo que dispare el Núcleo Funk sintetizado.
+            for (const [band, energy] of Object.entries(radioBand)) {
+                const instruments = BAND_INSTRUMENTS[band];
+                nebulas.forEach(n => {
+                    if (!instruments.includes(n.instrument)) return;
+                    n.pulse = Math.max(n.pulse, energy * spectrumReactivity * 1.1);
+                });
+            }
+
+            // Nubes: la energía total del espectro las hace respirar, igual que el beat interno.
+            const totalEnergy = (radioBand.bass + radioBand.mid + radioBand.treble) / 3;
+            globalBeatPulse = Math.max(globalBeatPulse, totalEnergy * spectrumReactivity);
+        }
+
+        document.getElementById('vol-master').addEventListener('input', e => {
+            if (masterGain) masterGain.gain.setValueAtTime(parseFloat(e.target.value), audioCtx.currentTime);
+        });
+        document.getElementById('tempo-slider').addEventListener('input', e => {
+            params.tempo = parseFloat(e.target.value);
+            document.getElementById('bpm-val').innerText = e.target.value;
+        });
+
+        /* ---------------------------------------------------------------
+           PULSO VISUAL DEL BEAT
+           · SOL       -> toma el color del instrumento
+           · LUNA      -> SOLO tamaño y brillo. El color se queda lunar.
+           · PÚLSARES  -> cada instrumento mueve el SUYO: se expande o se
+                          contrae y recibe un impulso de giro que alterna
+                          de sentido. El tamaño del píxel nunca cambia.
+           --------------------------------------------------------------- */
+        function pulseCosmos(force, colorHex, weight = 1.0, instrument = null) {
+            const beatColor = new THREE.Color(colorHex);
+
+            // Nubes: cualquier voz del jam las hace respirar, no una sola.
+            globalBeatPulse = Math.min(1.3, globalBeatPulse + force * weight * 0.5);
+
+            // Sol: pulso cromático completo
+            sunCurrentScale = sunBaseScale + (force * 120 * weight);
+            currentSunColor.copy(beatColor);
+
+            // Luna: late, pero no se tiñe. Solo un rastro mínimo de color.
+            moonCurrentScale = moonBaseScale + (force * 85 * weight);
+            moonBeatGlow = Math.min(1, moonBeatGlow + force * 0.9);
+            currentMoonColor.copy(baseMoonColor).lerp(beatColor, MOON_TINT_MAX * force);
+
+            if (!instrument) return;
+
+            for (let i = 0; i < nebulas.length; i++) {
+                const n = nebulas[i];
+                if (n.instrument !== instrument) continue;
+
+                n.pulse = Math.min(1.2, n.pulse + force * weight);
+
+                // Impulso de giro alternando sentido: la nebulosa "cabecea" con el groove
+                const impulse = 0.9 * force * weight * nebulaReactivity;
+                n.spin += n.flipNext ? -impulse : impulse;
+                n.flipNext = !n.flipNext;
+            }
+        }
+
+        function playKick(t, v) {
+            pulseCosmos(v, 0xff0055, 1.0, 'kick');
+            const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+            osc.frequency.setValueAtTime(120 * v, t); osc.frequency.exponentialRampToValueAtTime(45, t + 0.08);
+            gain.gain.setValueAtTime(0, t); gain.gain.linearRampToValueAtTime(1.0 * v * mixer.kick, t + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.01, t + 0.3);
+            osc.connect(gain); gain.connect(masterGain); osc.start(t); osc.stop(t + 0.4);
+        }
+
+        function playSnare(t, v) {
+            pulseCosmos(v * 0.5, 0x00ffff, 0.7, 'snare');
+            const osc = audioCtx.createOscillator(), oscGain = audioCtx.createGain();
+            osc.type = 'triangle'; osc.frequency.setValueAtTime(220, t);
+            oscGain.gain.setValueAtTime(0, t); oscGain.gain.linearRampToValueAtTime(0.5 * v * mixer.snare, t + 0.01);
+            oscGain.gain.exponentialRampToValueAtTime(0.01, t + 0.15);
+            osc.connect(oscGain); oscGain.connect(masterGain); osc.start(t); osc.stop(t + 0.2);
+
+            const n = audioCtx.createBufferSource(), f = audioCtx.createBiquadFilter(), ng = audioCtx.createGain();
+            n.buffer = noiseBuffer; f.type = 'highpass'; f.frequency.value = 2500;
+            ng.gain.setValueAtTime(0, t); ng.gain.linearRampToValueAtTime(0.6 * v * mixer.snare, t + 0.01);
+            ng.gain.exponentialRampToValueAtTime(0.01, t + 0.25);
+            n.connect(f); f.connect(ng); ng.connect(masterGain); n.start(t); n.stop(t + 0.3);
+        }
+
+        function playBass(t, freq, v) {
+            pulseCosmos(v * 0.8, 0xffaa00, 0.5, 'bass');
+            const sub = audioCtx.createOscillator(), mid = audioCtx.createOscillator(),
+                  filter = audioCtx.createBiquadFilter(), gain = audioCtx.createGain();
+            sub.type = 'sine'; sub.frequency.value = freq;
+            mid.type = 'triangle'; mid.frequency.value = freq * 1.002;
+
+            filter.type = 'lowpass'; filter.Q.value = 1.0;
+            const baseFreq = 60 + (params.filterMod * 150);
+            const peakFreq = baseFreq + (v * params.filterMod * 800);
+            filter.frequency.setValueAtTime(baseFreq, t);
+            filter.frequency.exponentialRampToValueAtTime(peakFreq, t + 0.04);
+            filter.frequency.exponentialRampToValueAtTime(baseFreq, t + 0.3);
+
+            gain.gain.setValueAtTime(0, t); gain.gain.linearRampToValueAtTime(0.8 * v * mixer.bass, t + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+
+            const subGain = audioCtx.createGain(); subGain.gain.value = 0.8;
+            const midGain = audioCtx.createGain(); midGain.gain.value = 1.2;
+            sub.connect(subGain); mid.connect(midGain);
+            subGain.connect(filter); midGain.connect(filter); filter.connect(gain); gain.connect(masterGain);
+            sub.start(t); mid.start(t); sub.stop(t + 0.5); mid.stop(t + 0.5);
+        }
+
+        function playDJScratch(t, v) {
+            pulseCosmos(v * 0.4, 0xffcc00, 0.4, 'scratch');
+            const osc = audioCtx.createOscillator(), filter = audioCtx.createBiquadFilter(), gain = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            const baseF = Math.random() > 0.5 ? 800 : 400;
+            osc.frequency.setValueAtTime(baseF, t);
+            osc.frequency.exponentialRampToValueAtTime(baseF * 2, t + 0.03);
+            osc.frequency.exponentialRampToValueAtTime(baseF * 0.5, t + 0.08);
+            filter.type = 'bandpass'; filter.Q.value = 5;
+            filter.frequency.setValueAtTime(2000, t); filter.frequency.linearRampToValueAtTime(500, t + 0.08);
+            gain.gain.setValueAtTime(0, t); gain.gain.linearRampToValueAtTime(1.0 * v * mixer.scratch, t + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+            osc.connect(filter); filter.connect(gain); gain.connect(masterGain); osc.start(t); osc.stop(t + 0.12);
+        }
+
+        function playKeys(t, v) {
+            pulseCosmos(v, 0x00ff66, 0.8, 'keys');
+            const chord = chords[Math.floor(Math.random() * chords.length)];
+            chord.forEach(freq => {
+                const osc = audioCtx.createOscillator(), filter = audioCtx.createBiquadFilter(), gain = audioCtx.createGain();
+                osc.type = 'triangle'; osc.frequency.value = freq;
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(1200, t); filter.frequency.exponentialRampToValueAtTime(200, t + 0.4);
+                gain.gain.setValueAtTime(0, t); gain.gain.linearRampToValueAtTime(0.15 * v * mixer.keys, t + 0.05);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+                osc.connect(filter); filter.connect(gain); gain.connect(masterGain); osc.start(t); osc.stop(t + 0.7);
+            });
+        }
+
+        // Vientos largos (de v6): pulso amplio, ideal para inflar nebulosas
+        function playSoftHorns(t, v) {
+            pulseCosmos(v * 0.9, 0xffffff, 1.4, 'horns');
+            const root = scaleBase[0] * 2;
+            [root, root * 1.5, root * 2].forEach(freq => {
+                const osc = audioCtx.createOscillator(), filter = audioCtx.createBiquadFilter(), gain = audioCtx.createGain();
+                osc.type = 'sawtooth'; osc.frequency.value = freq * (1 + (Math.random() * 0.006 - 0.003));
+                filter.type = 'lowpass'; filter.Q.value = 1;
+                filter.frequency.setValueAtTime(300, t);
+                filter.frequency.linearRampToValueAtTime(1500, t + 0.8);
+                filter.frequency.exponentialRampToValueAtTime(200, t + 2.0);
+                gain.gain.setValueAtTime(0, t); gain.gain.linearRampToValueAtTime(0.2 * v * mixer.horns, t + 0.5);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 2.5);
+                osc.connect(filter); filter.connect(gain); gain.connect(masterGain);
+                osc.start(t); osc.stop(t + 2.6);
+            });
+        }
+
+        let step = 0, barsInPhase = 0, currentPhaseIndex = 0;
+        const FASES = [
+            { id: 'INTRO', length: 4 }, { id: 'VERSE', length: 8 }, { id: 'RISE', length: 4 },
+            { id: 'CHORUS', length: 8 }, { id: 'BREAK', length: 4 }, { id: 'VAMP', length: 8 }
+        ];
+        let activeInstruments = { kick: true, snare: false, bass: true, keys: false, scratch: false, horns: false };
+
+        function runDirectorLogic() {
+            const phase = FASES[currentPhaseIndex].id;
+            switch (phase) {
+                case 'INTRO':
+                    activeInstruments = { kick: true, snare: false, bass: true, keys: false, scratch: false, horns: false };
+                    params.filterMod = 0.2; break;
+                case 'VERSE':
+                    activeInstruments = { kick: true, snare: true, bass: true, keys: Math.random() > 0.7, scratch: Math.random() > 0.4, horns: false };
+                    params.filterMod = 0.4; break;
+                case 'RISE':
+                    activeInstruments = { kick: true, snare: true, bass: true, keys: true, scratch: true, horns: false };
+                    params.filterMod = 0.6; break;
+                case 'CHORUS':
+                    activeInstruments = { kick: true, snare: true, bass: true, keys: true, scratch: Math.random() > 0.8, horns: true };
+                    params.filterMod = 0.9; break;
+                case 'BREAK':
+                    activeInstruments = { kick: true, snare: Math.random() > 0.2, bass: Math.random() > 0.5, keys: false, scratch: false, horns: false };
+                    params.filterMod = 0.1; break;
+                case 'VAMP':
+                    activeInstruments = { kick: true, snare: true, bass: true, keys: true, scratch: true, horns: true };
+                    params.filterMod = 1.0; break;
+            }
+            const el = document.getElementById('phase-val');
+            if (el) el.innerText = phase;
+        }
+
+        function mutateSequence() {
+            for (let i = 0; i < 16; i++) {
+                if (i !== 0 && Math.random() < 0.2) {
+                    activePatterns.bass[i] = activePatterns.bass[i] > 0 ? 0 : (Math.random() * 0.5 + 0.4);
+                    bassMelody[i] = Math.floor(Math.random() * scaleBase.length);
+                }
+            }
+        }
+
+        function scheduler() {
+            if (step > 0 && step % 16 === 0) {
+                barsInPhase++; mutateSequence();
+                if (barsInPhase >= FASES[currentPhaseIndex].length) {
+                    barsInPhase = 0; currentPhaseIndex = (currentPhaseIndex + 1) % FASES.length;
+                }
+                runDirectorLogic();
+            }
+
+            const stepTime = (60 / params.tempo) / 4;
+            const swingAmount = (step % 2 !== 0) ? stepTime * (params.swing * 0.5) : 0;
+            const playTime = audioCtx.currentTime + 0.05 + swingAmount;
+            const s = step % 16;
+
+            let kickVel = activePatterns.kick[s];
+            const phaseId = FASES[currentPhaseIndex].id;
+            if ((phaseId === 'CHORUS' || phaseId === 'VAMP') && s % 4 === 0) kickVel = 1.0;
+
+            if (activeInstruments.kick && kickVel > 0) playKick(playTime, kickVel);
+            if (activeInstruments.snare && activePatterns.snare[s] > 0) playSnare(playTime, activePatterns.snare[s]);
+            if (activeInstruments.scratch && activePatterns.scratch[s] > 0) playDJScratch(playTime, activePatterns.scratch[s]);
+            if (activeInstruments.bass && activePatterns.bass[s] > 0) {
+                const noteIndex = s === 0 ? 0 : bassMelody[s];
+                playBass(playTime, scaleBase[noteIndex], activePatterns.bass[s]);
+            }
+            if (activeInstruments.keys && (s === 2 || s === 10) && Math.random() > 0.3) playKeys(playTime, 0.7);
+            if (activeInstruments.horns && s === 0 && barsInPhase % 2 === 0 && Math.random() > 0.2) playSoftHorns(playTime, 1.0);
+
+            step++; setTimeout(scheduler, stepTime * 1000);
+        }
+
+        // =====================================================================
+        // LOOP
+        // =====================================================================
+        // =====================================================================
+        // EDITOR DE TERRENOS — cada dibujo con su propio relieve y su propia carta de colores
+        // ---------------------------------------------------------------------
+        // Por mapa: exageración vertical, macizo, crestas, terrazas, elevación base, tamaño,
+        // trazo como cresta o como cañón, tintas hipsométricas y batimetría.
+        // Se guarda en este navegador (localStorage) y se exporta/importa como JSON.
+        // =====================================================================
+        const TERR_STORE = 'aerocosmos.terrenos.v1';
+        const TERR_PRESETS = {
+            'Clásica':       [[0, '#3f7d47'], [40, '#5f9d53'], [100, '#9dc66f'], [170, '#e4da8a'], [240, '#d6aa5c'], [320, '#b27b46'], [400, '#8f5037'], [470, '#a89a92'], [540, '#f4f4f1']],
+            'Patagonia':     [[0, '#2d5a3d'], [60, '#4f7f4a'], [150, '#8aa36b'], [230, '#b8a77a'], [320, '#8c7a6b'], [400, '#d9dde3'], [470, '#ffffff']],
+            'Desierto':      [[0, '#c9b37e'], [80, '#d9a35e'], [180, '#c47a3d'], [300, '#8e4a2b'], [420, '#5e2f1f'], [540, '#f1e3c8']],
+            'Volcánica':     [[0, '#2b2b2b'], [60, '#3e3a36'], [160, '#5a3d30'], [260, '#8a3b22'], [380, '#c2501f'], [480, '#f2a03d'], [560, '#fff1c1']],
+            'Glaciar':       [[0, '#5f7f8f'], [60, '#8fb0bf'], [160, '#c8dde6'], [300, '#e8f2f7'], [450, '#ffffff']],
+            'Tinta y papel': [[0, '#efe6d2'], [200, '#e3d6bb'], [400, '#cdbb98'], [560, '#b5a07a']]
+        };
+        const TERR_SEA_PRESETS = {
+            'Clásico':       [[0, '#a8e1ef'], [4, '#6db8de'], [18, '#3478b5'], [45, '#1b4a8a'], [90, '#0a1b45']],
+            'Lago glaciar':  [[0, '#bff3ee'], [6, '#5fd3c6'], [25, '#1f9c9a'], [60, '#0e5f6b'], [90, '#073640']],
+            'Abismo':        [[0, '#6aa7c4'], [8, '#2c5d86'], [30, '#14315a'], [90, '#03081a']]
+        };
+        let TERR_SAVED = {};
+        try { TERR_SAVED = JSON.parse(localStorage.getItem(TERR_STORE) || '{}') || {}; } catch (e) { TERR_SAVED = {}; }
+
+        function terrCompile(c) {
+            c.land.sort((a, b) => a[0] - b[0]); c.sea.sort((a, b) => a[0] - b[0]);
+            c.landC = c.land.map(([h, x]) => [h, new THREE.Color(x)]);
+            c.seaC  = c.sea.map(([h, x]) => [h, new THREE.Color(x)]);
+            return c;
+        }
+        function terrDefaults(d) {
+            return { mass: 1, crest: 1, terrace: +d.P.terrace.toFixed(2), base: 0, vert: 1, invert: false, size: 1,
+                     land: TERR_PRESETS['Clásica'].map(x => [...x]), sea: TERR_SEA_PRESETS['Clásico'].map(x => [...x]) };
+        }
+        function terrMakeCfg(d) {
+            const c = Object.assign(terrDefaults(d), JSON.parse(JSON.stringify(TERR_SAVED[d.file] || {})));
+            return terrCompile(c);
+        }
+        function terrSerialize(c) {
+            const { mass, crest, terrace, base, vert, invert, size, land, sea } = c;
+            return { mass, crest, terrace, base, vert, invert, size, land, sea };
+        }
+        let terrSaveTimer = null;
+        function terrSave() {
+            clearTimeout(terrSaveTimer);
+            terrSaveTimer = setTimeout(() => {
+                const all = {};
+                TINTA.drawings.forEach(d => all[d.file] = terrSerialize(d.cfg));
+                try { localStorage.setItem(TERR_STORE, JSON.stringify(all)); } catch (e) { /* sin almacenamiento: queda en memoria */ }
+            }, 400);
+        }
+
+        // Relieve suave del dibujo (macizo + estrato + terrazas), recalculable al editar
+        function tintaBuildHeight(d) {
+            const C = d.cfg, N = d.W * d.H, out = d.height || (d.height = new Float32Array(N));
+            const massK = d.P.massK * C.mass, ter = C.terrace;
+            for (let i = 0; i < N; i++) {
+                const ms = d.mass8[i] / 255, st = d.strata8[i] / 255;
+                let h = massK * Math.pow(ms, 1.25) + 34 * st * Math.sqrt(ms) - 14 * ms * (1 - st);
+                if (ter > 0) {
+                    const step = 24, q = Math.floor(h / step) * step + step * tintaSS(0.75, 1, (h % step) / step);
+                    h = h + (q - h) * ter;
+                }
+                out[i] = h;
+            }
+        }
+        // Altura de un punto del papel (sin máscara de costa). Deja el filo del trazo en TINTA._crisp.
+        function tintaPaperHeight(d, px, py) {
+            const qx = px * d.sk, qy = py * d.sk, C = d.cfg;
+            const crisp = tintaSS(0.22, 0.7, tintaBilinear(d.sharp, d.SW, d.SH, qx, qy) / 255);
+            const ridge = tintaSS(0.05, 0.85, tintaBilinear(d.broad, d.SW, d.SH, qx, qy) / 255);
+            TINTA._crisp = crisp;
+            const crest = d.P.crestK * C.crest * (C.invert ? -1 : 1) * (0.8 * ridge + 0.2 * crisp);
+            return (tintaBilinear(d.height, d.W, d.H, px, py) + crest) * C.vert + C.base;
+        }
+
+        // Color por cota con la carta propia del dibujo, fundida con la global en la costa
+        function topoColorTbl(h, land, sea, out) {
+            const e = h - SEA_LEVEL, tbl = e >= 0 ? land : sea, v = Math.abs(e);
+            if (v <= tbl[0][0]) return out.copy(tbl[0][1]);
+            for (let i = 1; i < tbl.length; i++) {
+                if (v <= tbl[i][0]) return out.copy(tbl[i - 1][1]).lerp(tbl[i][1], (v - tbl[i - 1][0]) / (tbl[i][0] - tbl[i - 1][0]));
+            }
+            return out.copy(tbl[tbl.length - 1][1]);
+        }
+        const _terrC = new THREE.Color();
+        function topoColorAt(h, isl, m, out) {
+            topoColor(h, out);
+            if (!isl || m <= 0) return out;
+            const c = isl.d.cfg;
+            topoColorTbl(h, c.landC, c.seaC, _terrC);
+            return out.lerp(_terrC, smoothstep(0, 0.35, m));
+        }
+
+        // --- regenerar solo los chunks que tocan ese dibujo ---
+        let regenQueue = [];
+        function terrRegen(file) {
+            for (const [key, ch] of chunks) {
+                const [cx, cz] = key.split(',').map(Number);
+                const x = cx * CHUNK_SIZE, z = cz * CHUNK_SIZE;
+                const ci = Math.round(x / TINTA.CELL), cj = Math.round(z / TINTA.CELL);
+                let hit = false;
+                for (let i = ci - 1; i <= ci + 1 && !hit; i++) for (let j = cj - 1; j <= cj + 1 && !hit; j++) {
+                    const s = tintaIsland(i, j);
+                    if (s && s.d.file === file && Math.hypot(s.cx - x, s.cz - z) < (s.d.D / s.k) * 1.1 + CHUNK_SIZE) hit = true;
+                }
+                if (hit && !regenQueue.includes(key)) regenQueue.push(key);
+            }
+        }
+        function regenChunk(key) {
+            const old = chunks.get(key); if (!old) return;
+            const [cx, cz] = key.split(',').map(Number);
+            const dist = Math.hypot(cx - Math.round(VIEW.focusX / CHUNK_SIZE), cz - Math.round(VIEW.focusZ / CHUNK_SIZE));
+            const fresh = createChunk(cx, cz, dist, { res: old.res, ink: chunkHasInk(cx, cz), noCloud: true });
+            fresh.mesh.position.y = 0; fresh.ready = true;
+            scene.remove(old.mesh);
+            old.terrainGeo.dispose();
+            old.mesh.traverse(o => { if (o.isMesh && o.geometry && !SHARED_GEOS.has(o.geometry) && !o.isInstancedMesh) o.geometry.dispose(); });
+            chunks.set(key, fresh);
+        }
+
+        // --- UI ---
+        const TE = { open: false, d: null, previewTimer: null };
+        function teSlider(id, label, min, max, step, key, fmt, heavy) {
+            return { id, label, min, max, step, key, fmt: fmt || (v => v), heavy };
+        }
+        const TE_SLIDERS = [
+            teSlider('te-vert',    'Exageración vertical',  0.2, 3,   0.05, 'vert',    v => '×' + (+v).toFixed(2)),
+            teSlider('te-mass',    'Altura del macizo',     0,   3,   0.05, 'mass',    v => '×' + (+v).toFixed(2), true),
+            teSlider('te-crest',   'Altura de las crestas', 0,   3,   0.05, 'crest',   v => '×' + (+v).toFixed(2)),
+            teSlider('te-terrace', 'Terrazas (mesetas)',    0,   1,   0.05, 'terrace', v => Math.round(v * 100) + '%', true),
+            teSlider('te-base',    'Elevación base',        -60, 250, 5,    'base',    v => v + ' m'),
+            teSlider('te-size',    'Tamaño de la isla',     0.5, 2,   0.05, 'size',    v => '×' + (+v).toFixed(2))
+        ];
+        function teLabel(d) {
+            const f = d.file;
+            return `${f.slice(6, 8)}-ago ${f.slice(9, 11)}:${f.slice(11, 13)} · ${d.P.kind}`;
+        }
+        function teBuild() {
+            const sel = document.getElementById('te-map');
+            sel.innerHTML = TINTA.drawings.map((d, i) => `<option value="${i}">${teLabel(d)}</option>`).join('');
+            document.getElementById('te-sliders').innerHTML = TE_SLIDERS.map(s => `
+                <div class="control-group"><label>${s.label}: <span id="${s.id}-v"></span></label>
+                <input type="range" id="${s.id}" min="${s.min}" max="${s.max}" step="${s.step}"></div>`).join('');
+            const pre = Object.keys(TERR_PRESETS).map(k => `<option>${k}</option>`).join('');
+            document.getElementById('te-preset').innerHTML = '<option value="">— carta de colores —</option>' + pre;
+            document.getElementById('te-sea-preset').innerHTML = '<option value="">— batimetría —</option>' +
+                Object.keys(TERR_SEA_PRESETS).map(k => `<option>${k}</option>`).join('');
+
+            sel.addEventListener('change', () => teSelect(TINTA.drawings[+sel.value]));
+            TE_SLIDERS.forEach(s => {
+                const el = document.getElementById(s.id);
+                el.addEventListener('input', () => {
+                    const c = TE.d.cfg; c[s.key] = +el.value;
+                    document.getElementById(s.id + '-v').innerText = s.fmt(el.value);
+                    if (s.heavy) tintaBuildHeight(TE.d);
+                    if (s.key === 'size') TINTA.islands.clear();
+                    tePreviewSoon();
+                });
+                el.addEventListener('change', teCommit);   // al soltar: se regenera el mundo
+            });
+            document.getElementById('te-invert').addEventListener('change', e => { TE.d.cfg.invert = e.target.checked; tePreviewSoon(); teCommit(); });
+            document.getElementById('te-show-ink').addEventListener('change', tePreviewSoon);
+            document.getElementById('te-preset').addEventListener('change', e => {
+                if (!e.target.value) return;
+                TE.d.cfg.land = TERR_PRESETS[e.target.value].map(x => [...x]); e.target.value = '';
+                teStops(); teCommit();
+            });
+            document.getElementById('te-sea-preset').addEventListener('change', e => {
+                if (!e.target.value) return;
+                TE.d.cfg.sea = TERR_SEA_PRESETS[e.target.value].map(x => [...x]); e.target.value = '';
+                teStops(); teCommit();
+            });
+            document.getElementById('te-add-stop').addEventListener('click', () => {
+                const L = TE.d.cfg.land, last = L[L.length - 1];
+                L.push([last[0] + 60, last[1]]); teStops(); teCommit();
+            });
+            document.getElementById('te-add-sea').addEventListener('click', () => {
+                const S = TE.d.cfg.sea, last = S[S.length - 1];
+                S.push([last[0] + 20, last[1]]); teStops(); teCommit();
+            });
+            document.getElementById('te-go').addEventListener('click', teGo);
+            document.getElementById('te-reset').addEventListener('click', () => {
+                const sizeWas = TE.d.cfg.size;
+                Object.assign(TE.d.cfg, terrDefaults(TE.d)); terrCompile(TE.d.cfg);
+                tintaBuildHeight(TE.d); if (sizeWas !== 1) TINTA.islands.clear();
+                teSelect(TE.d); teCommit();
+            });
+            document.getElementById('te-export').addEventListener('click', () => {
+                const all = {};
+                TINTA.drawings.forEach(d => all[d.file] = terrSerialize(d.cfg));
+                const blob = new Blob([JSON.stringify({ aerocosmos: 'terrenos', version: 1, terrenos: all }, null, 2)], { type: 'application/json' });
+                const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'aerocosmos_terrenos.json'; a.click();
+                setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+            });
+            document.getElementById('te-import').addEventListener('change', async e => {
+                const f = e.target.files[0]; if (!f) return;
+                try {
+                    const data = JSON.parse(await f.text()), all = data.terrenos || data;
+                    TINTA.drawings.forEach(d => {
+                        if (!all[d.file]) return;
+                        Object.assign(d.cfg, all[d.file]); terrCompile(d.cfg); tintaBuildHeight(d);
+                        terrRegen(d.file);
+                    });
+                    TINTA.islands.clear(); terrSave(); teSelect(TE.d);
+                    teInfo('Terrenos importados.');
+                } catch (err) { teInfo('No se pudo leer el archivo: ' + err.message); }
+                e.target.value = '';
+            });
+            document.getElementById('te-close').addEventListener('click', teToggle);
+        }
+        function teToggle() {
+            TE.open = !TE.open;
+            document.getElementById('terrain-editor').style.display = TE.open ? 'block' : 'none';
+            document.getElementById('btn-editor').classList.toggle('active-btn', TE.open);
+            if (TE.open) {
+                // abre con el dibujo que estás sobrevolando
+                const isl = birdIsland(camera.position.x, camera.position.z);
+                teSelect(isl ? isl.d : (TE.d || TINTA.drawings[0]));
+            }
+        }
+        function teSelect(d) {
+            TE.d = d;
+            document.getElementById('te-map').value = TINTA.drawings.indexOf(d);
+            TE_SLIDERS.forEach(s => {
+                const el = document.getElementById(s.id); el.value = d.cfg[s.key];
+                document.getElementById(s.id + '-v').innerText = s.fmt(d.cfg[s.key]);
+            });
+            document.getElementById('te-invert').checked = !!d.cfg.invert;
+            teStops(); tePreviewSoon();
+        }
+        function teStops() {
+            const c = TE.d.cfg; terrCompile(c);
+            const row = (arr, i, kind) => `
+                <div class="te-stop">
+                    <input type="number" data-k="${kind}" data-i="${i}" data-f="h" value="${arr[i][0]}" step="5">
+                    <span>${kind === 'sea' ? 'm bajo el mar' : 'm'}</span>
+                    <input type="color" data-k="${kind}" data-i="${i}" data-f="c" value="${arr[i][1]}">
+                    <button data-k="${kind}" data-i="${i}" data-f="x" title="quitar">×</button>
+                </div>`;
+            document.getElementById('te-stops').innerHTML = c.land.map((_, i) => row(c.land, i, 'land')).join('');
+            document.getElementById('te-sea-stops').innerHTML = c.sea.map((_, i) => row(c.sea, i, 'sea')).join('');
+            document.querySelectorAll('#te-stops [data-k], #te-sea-stops [data-k]').forEach(el => {
+                const arr = el.dataset.k === 'sea' ? c.sea : c.land, i = +el.dataset.i;
+                if (el.dataset.f === 'x') el.addEventListener('click', () => { if (arr.length > 2) { arr.splice(i, 1); teStops(); teCommit(); } });
+                else {
+                    el.addEventListener('input', () => {
+                        if (el.dataset.f === 'h') arr[i][0] = +el.value; else arr[i][1] = el.value;
+                        terrCompile(c); tePreviewSoon(); teBar();
+                    });
+                    el.addEventListener('change', () => { if (el.dataset.f === 'h') teStops(); teCommit(); });
+                }
+            });
+            teBar(); tePreviewSoon();
+        }
+        function teBar() {
+            const cv = document.getElementById('te-bar'), g = cv.getContext('2d'), c = TE.d.cfg, col = new THREE.Color();
+            const maxH = Math.max(560, c.landC[c.landC.length - 1][0]), maxD = Math.max(90, c.seaC[c.seaC.length - 1][0]);
+            for (let x = 0; x < cv.width; x++) {
+                const hh = SEA_LEVEL - maxD + x / (cv.width - 1) * (maxD + maxH);
+                topoColorTbl(hh, c.landC, c.seaC, col);
+                g.fillStyle = '#' + col.getHexString(); g.fillRect(x, 0, 1, cv.height);
+            }
+            const z = maxD / (maxD + maxH) * cv.width;
+            g.fillStyle = '#fff'; g.fillRect(z, 0, 1, cv.height);
+        }
+        function teCommit() {
+            terrCompile(TE.d.cfg); terrRegen(TE.d.file); terrSave(); tePreviewSoon();
+        }
+        function tePreviewSoon() { clearTimeout(TE.previewTimer); TE.previewTimer = setTimeout(tePreview, 40); }
+
+        // Vista previa: la isla sola, con su carta de colores, sombreado NO y el trazo
+        function tePreview() {
+            const d = TE.d; if (!d) return;
+            const cv = document.getElementById('te-preview'), g = cv.getContext('2d'), N = cv.width;
+            const sc = Math.max(d.W, d.H) / N, ox = (N - d.W / sc) / 2, oy = (N - d.H / sc) / 2;
+            const Hh = new Float32Array(N * N), Ki = new Float32Array(N * N), c = d.cfg;
+            let hmax = -1e9, hsum = 0, n = 0;
+            for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+                const px = (i - ox) * sc, py = (j - oy) * sc;
+                const u = (px - d.W / 2) / (d.W / 2), v = (py - d.H / 2) / (d.H / 2);
+                const rr = Math.pow(Math.pow(Math.abs(u), 2.6) + Math.pow(Math.abs(v), 2.6), 1 / 2.6);
+                const shallow = 1 - tintaSS(0.97, 1.75, rr);
+                const floor = SEA_LEVEL - 3 - TOPO.MAX_DEPTH * Math.pow(1 - shallow, 1.4);
+                let h = floor, ink = 0;
+                if (px >= 0 && py >= 0 && px < d.W && py < d.H) {
+                    const m = 1 - tintaSS(1 - 2 * TINTA.EDGE, 1, rr);
+                    if (m > 0) {
+                        const land = SEA_LEVEL + 4 + tintaPaperHeight(d, px, py);
+                        h = floor + (land - floor) * tintaSS(0, 1, m);
+                        ink = TINTA._crisp * m;
+                        if (m > 0.5) { hmax = Math.max(hmax, h); hsum += h; n++; }
+                    }
+                }
+                Hh[j * N + i] = h; Ki[j * N + i] = ink;
+            }
+            const img = g.createImageData(N, N), D = img.data, col = new THREE.Color(), L = TOPO.LIGHT;
+            const cellM = sc / (d.D / (3000 * c.size)), showInk = document.getElementById('te-show-ink').checked;
+            for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+                const k = j * N + i, h = Hh[k];
+                const hR = Hh[j * N + Math.min(N - 1, i + 1)], hL = Hh[j * N + Math.max(0, i - 1)];
+                const hD = Hh[Math.min(N - 1, j + 1) * N + i], hU = Hh[Math.max(0, j - 1) * N + i];
+                topoColorTbl(h, c.landC, c.seaC, col);
+                const nx = -(hR - hL) / (2 * cellM) * 2, nz = -(hD - hU) / (2 * cellM) * 2;
+                const dot = (nx * L.x + L.y + nz * L.z) / Math.hypot(nx, 1, nz);
+                const sh = h > SEA_LEVEL ? THREE.MathUtils.clamp(0.3 + dot, 0.35, 1.25) : 1;
+                let r = col.r * sh, gg = col.g * sh, bb = col.b * sh;
+                const e = h - SEA_LEVEL, I = TOPO_U.uTopoInterval.value * 2.5;
+                if (Math.floor(e / I) !== Math.floor((hR - SEA_LEVEL) / I) || Math.floor(e / I) !== Math.floor((hD - SEA_LEVEL) / I)) {
+                    r = r * 0.55 + 0.3 * 0.45; gg = gg * 0.55 + 0.17 * 0.45; bb = bb * 0.55 + 0.07 * 0.45;
+                }
+                if (showInk && Ki[k] > 0.02) { const t = Ki[k] * 0.85; r += (0.06 - r) * t; gg += (0.05 - gg) * t; bb += (0.04 - bb) * t; }
+                D[k * 4] = Math.min(255, r * 255); D[k * 4 + 1] = Math.min(255, gg * 255); D[k * 4 + 2] = Math.min(255, bb * 255); D[k * 4 + 3] = 255;
+            }
+            g.putImageData(img, 0, 0);
+            teInfo(`${d.P.kind} · cumbre ${Math.round(hmax - SEA_LEVEL)} m · media ${Math.round(hsum / Math.max(1, n) - SEA_LEVEL)} m`);
+        }
+        function teInfo(t) { document.getElementById('te-info').innerText = t; }
+
+        // Llevar al piloto al ejemplar más cercano de este dibujo y mirarlo desde el cielo
+        function teGo() {
+            const px = camera.position.x, pz = camera.position.z;
+            const ci = Math.round(px / TINTA.CELL), cj = Math.round(pz / TINTA.CELL);
+            let best = null, bd = Infinity;
+            for (let r = 0; r <= 8 && !best; r++) for (let i = ci - r; i <= ci + r; i++) for (let j = cj - r; j <= cj + r; j++) {
+                const s = tintaIsland(i, j); if (!s || s.d !== TE.d) continue;
+                const dd = (s.cx - px) ** 2 + (s.cz - pz) ** 2; if (dd < bd) { bd = dd; best = s; }
+            }
+            if (!best) { teInfo('No hay un ejemplar de este dibujo cerca.'); return; }
+            camera.position.set(best.cx, Math.max(SEA_LEVEL, noise.get(best.cx, best.cz)) + 320, best.cz);
+            VIEW.centerReady = false; VIEW.eagle = false; VIEW.target = 0;
+        }
+
+        // =====================================================================
+        // CARTÓGRAFO — cámara continua ave ⇄ 3ª persona ⇄ 1ª persona, piloto visible y mapa 2D
+        // ---------------------------------------------------------------------
+        // La FÍSICA sigue viviendo en `camera` (el piloto): parapente, colisión, carga de
+        // chunks, astros... nada de eso cambia. Solo en el instante del render la cámara se
+        // traslada a la vista elegida y luego vuelve al piloto. Por eso el injerto es seguro.
+        // =====================================================================
+        const VIEW = {
+            b: 0, target: 0,             // 0 = vista de ave · 1 = tercera persona · 2 = primera persona
+            birdness: 1,
+            center: new THREE.Vector3(), centerReady: false,
+            upDir: new THREE.Vector3(0, 0, -1),
+            span: 3000, island: null,
+            focusX: 0, focusZ: 0,
+            // ÁGUILA (como la vista de pájaro de Musicosmos): cámara alta que sigue al piloto,
+            // gira a su alrededor con el mouse, inclinación limitada, altura con la rueda
+            eagle: false, eT: 0, eR: 650, eYaw: 0, ePitch: -1.0
+        };
+        const _vs = {
+            pos: new THREE.Vector3(), quat: new THREE.Quaternion(), m: new THREE.Matrix4(),
+            fwd: new THREE.Vector3(), eyeBird: new THREE.Vector3(), eye3: new THREE.Vector3(),
+            eye: new THREE.Vector3(), tgt: new THREE.Vector3(), upT: new THREE.Vector3(), cT: new THREE.Vector3(),
+            qBird: new THREE.Quaternion(), q3: new THREE.Quaternion(), q: new THREE.Quaternion(),
+            eyeE: new THREE.Vector3(), qE: new THREE.Quaternion(),
+            yUp: new THREE.Vector3(0, 1, 0)
+        };
+        let pilotModel;
+
+        // Vela de parapente simple: 11 cajones en arco, suspentes y piloto. Mira hacia -Z.
+        function buildPilotModel() {
+            const g = new THREE.Group();
+            const matA = new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.6, side: THREE.DoubleSide });
+            const matB = new THREE.MeshStandardMaterial({ color: 0xfde68a, roughness: 0.6, side: THREE.DoubleSide });
+            const cells = 11, span = 11, arcR = 7.5, anchors = [];
+            for (let i = 0; i < cells; i++) {
+                const t = (i + 0.5) / cells - 0.5;
+                const ang = t * (span / arcR);
+                const x = Math.sin(ang) * arcR, y = Math.cos(ang) * arcR;   // ápice a 7.5 m sobre el piloto
+                const chord = 2.6 * (1 - Math.abs(t) * 0.7);
+                const c = new THREE.Mesh(new THREE.BoxGeometry(span / cells * 1.03, 0.28, chord), i % 2 ? matA : matB);
+                c.position.set(x, y, 0.2); c.rotation.z = -ang;
+                g.add(c);
+                if (i % 2 === 0) anchors.push(x, y - 0.15, 0.2, 0, 0.7, 0);
+            }
+            const lg = new THREE.BufferGeometry();
+            lg.setAttribute('position', new THREE.Float32BufferAttribute(anchors, 3));
+            g.add(new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: 0x1f2937, transparent: true, opacity: 0.7 })));
+            const body = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.38, 1.3, 8), new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.8 }));
+            body.rotation.x = 0.35;
+            const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.26, 10, 8), new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.4 }));
+            helmet.position.set(0, 0.85, -0.1);
+            g.add(body, helmet);
+            return g;
+        }
+
+        // Dibujo que se encuadra desde el cielo: el que está bajo el piloto, o el más cercano.
+        function birdIsland(x, z) {
+            if (tintaSample(x, z) && TINTA.lastIsland && TINTA.lastMask > 0.05) return TINTA.lastIsland;
+            let best = null, bd = Infinity;
+            const ci = Math.round(x / TINTA.CELL), cj = Math.round(z / TINTA.CELL);
+            for (let i = ci - 1; i <= ci + 1; i++) for (let j = cj - 1; j <= cj + 1; j++) {
+                const s = tintaIsland(i, j); if (!s) continue;
+                const d = (s.cx - x) ** 2 + (s.cz - z) ** 2;
+                if (d < bd) { bd = d; best = s; }
+            }
+            return best;
+        }
+
+        function renderViewRig(dt) {
+            VIEW.b += (VIEW.target - VIEW.b) * Math.min(1, dt * 3.0);
+            const b = VIEW.b;
+            const bird = VIEW.birdness = 1 - smoothstep(0.0, 0.92, b);
+
+            _vs.pos.copy(camera.position); _vs.quat.copy(camera.quaternion);
+            const P = _vs.pos, yaw = cameraRotY;
+            _vs.fwd.set(-Math.sin(yaw), 0, -Math.cos(yaw));
+
+            // --- encuadre del dibujo (vista de ave) ---
+            const isl = birdIsland(P.x, P.z);
+            if (isl) {
+                const size = Math.max(isl.d.W, isl.d.H) / isl.k;
+                _vs.cT.set(isl.cx, 0, isl.cz);
+                // "arriba" de la hoja en el mundo: así el dibujo se ve derecho, como en el papel
+                _vs.upT.set(Math.sin(isl.ang), 0, -Math.cos(isl.ang));
+                const k = VIEW.centerReady ? Math.min(1, dt * 1.6) : 1;
+                VIEW.center.lerp(_vs.cT, k);
+                VIEW.span += (size - VIEW.span) * k;
+                if (VIEW.upDir.dot(_vs.upT) < -0.9) VIEW.upDir.copy(_vs.upT);   // evita girar por el cero
+                VIEW.upDir.lerp(_vs.upT, k).normalize();
+                VIEW.island = isl; VIEW.centerReady = true;
+            }
+            const tanHalf = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+            const fitH = VIEW.span * 0.5 / (tanHalf * Math.min(1, camera.aspect)) * 1.06;
+            VIEW.center.y = 0;
+            _vs.eyeBird.copy(VIEW.center).y = fitH + 80;
+            _vs.m.lookAt(_vs.eyeBird, VIEW.center, VIEW.upDir);
+            _vs.qBird.setFromRotationMatrix(_vs.m);
+
+            // --- tercera persona: detrás y arriba de la vela ---
+            _vs.eye3.copy(P).addScaledVector(_vs.fwd, -26); _vs.eye3.y += 9;
+            const g3 = noise.get(_vs.eye3.x, _vs.eye3.z);
+            if (_vs.eye3.y < g3 + 4) _vs.eye3.y = g3 + 4;
+            _vs.tgt.copy(P).addScaledVector(_vs.fwd, 14); _vs.tgt.y += 1;
+            _vs.m.lookAt(_vs.eye3, _vs.tgt, _vs.yUp);
+            _vs.q3.setFromRotationMatrix(_vs.m);
+
+            // --- mezcla continua ---
+            if (b >= 1) {
+                const t = smoothstep(0, 1, b - 1);
+                _vs.eye.lerpVectors(_vs.eye3, P, t);
+                _vs.q.copy(_vs.q3).slerp(_vs.quat, t);
+            } else {
+                const t = smoothstep(0, 1, b);
+                _vs.eye.lerpVectors(_vs.eyeBird, _vs.eye3, t);
+                _vs.q.copy(_vs.qBird).slerp(_vs.q3, t);
+            }
+
+            // --- ÁGUILA: sobre el mapa vivo, siguiendo al piloto ---
+            VIEW.eT += ((VIEW.eagle ? 1 : 0) - VIEW.eT) * Math.min(1, dt * 3.0);
+            const eg = smoothstep(0, 1, VIEW.eT);
+            if (eg > 0.001) {
+                const Y = yaw + VIEW.eYaw, pc = VIEW.ePitch, R = VIEW.eR;
+                _vs.eyeE.set(P.x + Math.sin(Y) * R * Math.cos(pc), P.y + R * Math.sin(-pc), P.z + Math.cos(Y) * R * Math.cos(pc));
+                _vs.m.lookAt(_vs.eyeE, P, _vs.yUp);
+                _vs.qE.setFromRotationMatrix(_vs.m);
+                _vs.eye.lerp(_vs.eyeE, eg);
+                _vs.q.slerp(_vs.qE, eg);
+            }
+            const adapt = Math.max(bird, eg);                      // cuánto "mapa" hay en la mirada
+
+            // --- el mundo se adapta a la altura de la mirada ---
+            const eDist = (bird > eg ? 0 : eg * VIEW.eR);
+            VIEW_DISTANCE = bird > 0.4 ? 15 : THREE.MathUtils.clamp(Math.ceil(eDist * 1.25 / CHUNK_SIZE), 10, 16);
+            const eFar = Math.hypot(eDist, (VIEW_DISTANCE + 0.4) * CHUNK_SIZE);
+            // el borde de lo cargado se funde con el mar (antes se veía escalonado)
+            scene.fog.near = FOG_NEAR + bird * 9000 + eg * (eFar * 0.55 - FOG_NEAR);
+            scene.fog.far  = FOG_FAR  + bird * 12000 + eg * (eFar * 0.93 - FOG_FAR);
+            CURV_U.value = CURVATURE * (1 - adapt);                // desde arriba, plano como un mapa
+            TOPO_U.uTopoInk.value = THREE.MathUtils.lerp(TOPO.inkFlight, TOPO.inkBird, adapt);
+            if (cloudsRoot) cloudsRoot.visible = adapt < 0.35 || (eg > 0.5 && VIEW.eR < 400);
+            VIEW.focusX = THREE.MathUtils.lerp(P.x, VIEW.center.x, bird * (1 - eg));
+            VIEW.focusZ = THREE.MathUtils.lerp(P.z, VIEW.center.z, bird * (1 - eg));
+            const camH = _vs.eye.distanceTo(P);
+            const near = THREE.MathUtils.clamp(camH * 0.008, 0.1, 25);   // precisión de profundidad desde lo alto
+            if (Math.abs(camera.near - near) > 0.05) { camera.near = near; camera.updateProjectionMatrix(); }
+
+            // El piloto ES el marcador: la vela crece con la distancia para leerse sobre el mapa
+            pilotModel.visible = b < 1.85 || eg > 0.01;
+            pilotModel.position.copy(P); pilotModel.position.y -= 1.0;
+            pilotModel.rotation.set(0, yaw, isParagliding ? pg.rollAngle * 0.8 : 0, 'YXZ');
+            pilotModel.scale.setScalar(Math.max(1, adapt * camH * 0.011));
+
+            // desde el cielo, más allá de lo cargado hay mar abierto, no cielo
+            if (adapt > 0.001 && scene.background) {
+                scene.background.lerp(TOPO.SEA[TOPO.SEA.length - 1][1], adapt);
+                scene.fog.color.lerp(TOPO.SEA[TOPO.SEA.length - 1][1], adapt);
+            }
+
+            camera.position.copy(_vs.eye); camera.quaternion.copy(_vs.q);
+            renderer.render(scene, camera);
+            camera.position.copy(P); camera.quaternion.copy(_vs.quat);   // de vuelta al piloto
+
+            if (frameCounter % 4 === 0) updateViewChip();
+        }
+
+        function updateViewChip() {
+            const k = Math.round(VIEW.target);
+            document.querySelectorAll('#view-chip span[data-b]').forEach(s => s.classList.toggle('on', !VIEW.eagle && +s.dataset.b === k));
+            document.querySelector('#view-chip span[data-e]').classList.toggle('on', VIEW.eagle);
+            document.getElementById('btn-map').classList.toggle('active-btn', VIEW.eagle);
+            document.querySelector('#view-bar i').style.left = `calc(${(VIEW.b / 2) * 100}% - 3px)`;
+        }
+
+        // =====================================================================
+        // MAPA 2D — hipsométrico con curvas de nivel, isóbatas, sombreado NO y el trazo original
+        // =====================================================================
+        const MAP = { open: false, span: 14000, cx: 0, cz: 0, N: 420, ink: true, timer: null };
+        function toggleMap2D() {
+            MAP.open = !MAP.open;
+            document.getElementById('map2d').style.display = MAP.open ? 'flex' : 'none';
+            if (MAP.open) { MAP.cx = camera.position.x; MAP.cz = camera.position.z; drawMap2D(); }
+        }
+        function toggleEagle() { VIEW.eagle = !VIEW.eagle; }
+        function mapStep(cellM) { for (const s of [10, 20, 25, 50, 100, 200, 250, 500]) if (s >= cellM * 2.2) return s; return 1000; }
+        function drawMap2D() {
+            const cv = document.getElementById('map-canvas');
+            const size = Math.floor(Math.min(window.innerWidth * 0.94, window.innerHeight * 0.84));
+            cv.width = size; cv.height = size;
+            const g = cv.getContext('2d');
+            g.fillStyle = '#0b1220'; g.fillRect(0, 0, size, size);
+            g.fillStyle = '#e2e8f0'; g.font = '14px monospace'; g.fillText('Cartografiando…', 20, 30);
+            clearTimeout(MAP.timer);
+            MAP.timer = setTimeout(() => renderMapNow(cv, g, size), 30);
+        }
+        function renderMapNow(cv, g, size) {
+            const N = MAP.N, span = MAP.span, cell = span / N;
+            const x0 = MAP.cx - span / 2, z0 = MAP.cz - span / 2;
+            const H = new Float32Array(N * N), K = new Float32Array(N * N), IS = new Array(N * N), MS = new Float32Array(N * N);
+            for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+                H[j * N + i] = noise.get(x0 + (i + 0.5) * cell, z0 + (j + 0.5) * cell);
+                K[j * N + i] = TINTA.lastInk; IS[j * N + i] = TINTA.lastIsland; MS[j * N + i] = TINTA.lastMask;
+            }
+            const I = mapStep(cell), IM = I * 5, L = TOPO.LIGHT, col = new THREE.Color();
+            const img = new ImageData(N, N), D = img.data;
+            const mix = (a, b, t) => a + (b - a) * t;
+            for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+                const k = j * N + i, h = H[k];
+                const hR = H[j * N + Math.min(N - 1, i + 1)], hL = H[j * N + Math.max(0, i - 1)];
+                const hD = H[Math.min(N - 1, j + 1) * N + i], hU = H[Math.max(0, j - 1) * N + i];
+                topoColorAt(h, IS[k], MS[k], col);
+                // sombreado de relieve: luz del noroeste, relieve exagerado x2 para leerse en plano
+                const nx = -(hR - hL) / (2 * cell) * 2, nz = -(hD - hU) / (2 * cell) * 2;
+                const dot = (nx * L.x + L.y + nz * L.z) / Math.hypot(nx, 1, nz);
+                const e = h - SEA_LEVEL;
+                const sh = e > 0 ? THREE.MathUtils.clamp(0.3 + dot, 0.35, 1.25) : THREE.MathUtils.clamp(0.75 + dot * 0.35, 0.6, 1.1);
+                let r = col.r * sh, gg = col.g * sh, bb = col.b * sh;
+                const eR = hR - SEA_LEVEL, eD = hD - SEA_LEVEL;
+                const fb = Math.floor(e / I), fm = Math.floor(e / IM);
+                const coast = (e > 0) !== (eR > 0) || (e > 0) !== (eD > 0);
+                const master = fm !== Math.floor(eR / IM) || fm !== Math.floor(eD / IM);
+                const line = fb !== Math.floor(eR / I) || fb !== Math.floor(eD / I);
+                const lc = e > 0 ? [0.32, 0.18, 0.07] : [0.05, 0.18, 0.40];   // isohipsas sepia · isóbatas azul
+                if (coast) { r = 0.04; gg = 0.16; bb = 0.33; }
+                else if (master) { r = mix(r, lc[0], 0.8); gg = mix(gg, lc[1], 0.8); bb = mix(bb, lc[2], 0.8); }
+                else if (line) { r = mix(r, lc[0], 0.42); gg = mix(gg, lc[1], 0.42); bb = mix(bb, lc[2], 0.42); }
+                if (MAP.ink && K[k] > 0.02) { const t = K[k] * 0.85; r = mix(r, 0.06, t); gg = mix(gg, 0.05, t); bb = mix(bb, 0.04, t); }
+                D[k * 4] = Math.min(255, r * 255); D[k * 4 + 1] = Math.min(255, gg * 255); D[k * 4 + 2] = Math.min(255, bb * 255); D[k * 4 + 3] = 255;
+            }
+            const off = document.createElement('canvas'); off.width = N; off.height = N;
+            off.getContext('2d').putImageData(img, 0, 0);
+            g.imageSmoothingEnabled = true; g.drawImage(off, 0, 0, size, size);
+
+            const toPx = (x, z) => [(x - x0) / span * size, (z - z0) / span * size];
+            // nombres de los dibujos
+            g.font = '600 12px "Segoe UI", sans-serif'; g.textAlign = 'center';
+            const i0 = Math.floor(x0 / TINTA.CELL) - 1, i1 = Math.ceil((x0 + span) / TINTA.CELL) + 1;
+            const j0 = Math.floor(z0 / TINTA.CELL) - 1, j1 = Math.ceil((z0 + span) / TINTA.CELL) + 1;
+            for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) {
+                const s = tintaIsland(i, j); if (!s) continue;
+                const [px, py] = toPx(s.cx, s.cz);
+                if (px < 0 || py < 0 || px > size || py > size) continue;
+                const f = s.d.file, date = `${f.slice(6, 8)}-ago ${f.slice(9, 11)}:${f.slice(11, 13)}`;
+                g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,0.75)';
+                g.font = '600 11px "Segoe UI", sans-serif'; g.strokeText(s.d.P.kind, px, py); g.fillStyle = '#fff7e0'; g.fillText(s.d.P.kind, px, py);
+                g.font = '10px monospace'; g.strokeText(date, px, py + 12); g.fillStyle = '#fbbf24'; g.fillText(date, px, py + 12);
+            }
+            // piloto
+            const [qx, qy] = toPx(camera.position.x, camera.position.z), yaw = cameraRotY;
+            g.save(); g.translate(qx, qy); g.rotate(-yaw);
+            g.beginPath(); g.moveTo(0, -11); g.lineTo(7, 8); g.lineTo(0, 4); g.lineTo(-7, 8); g.closePath();
+            g.fillStyle = '#ff2d2d'; g.fill(); g.lineWidth = 2; g.strokeStyle = '#fff'; g.stroke(); g.restore();
+            // norte, escala y leyenda
+            g.textAlign = 'left';
+            g.fillStyle = 'rgba(0,0,0,0.6)'; g.fillRect(size - 44, 10, 34, 40);
+            g.fillStyle = '#fff'; g.font = '700 14px monospace'; g.fillText('N', size - 32, 26); g.fillText('↑', size - 32, 44);
+            const km = 1000 / span * size, sb = km >= 60 ? km : km * 5, sl = km >= 60 ? '1 km' : '5 km';
+            g.fillStyle = 'rgba(0,0,0,0.6)'; g.fillRect(10, size - 40, sb + 20, 30);
+            g.fillStyle = '#fff'; g.fillRect(20, size - 22, sb, 4); g.font = '11px monospace'; g.fillText(sl, 20, size - 26);
+            const lx = size - 250, ly = size - 54;
+            g.fillStyle = 'rgba(0,0,0,0.65)'; g.fillRect(lx - 10, ly - 22, 250, 66);
+            for (let p = 0; p < 220; p++) {
+                const hh = SEA_LEVEL - TOPO.MAX_DEPTH + (p / 219) * (TOPO.MAX_DEPTH + 560);
+                topoColor(hh, col); g.fillStyle = `#${col.getHexString()}`; g.fillRect(lx + p, ly, 1, 14);
+            }
+            g.fillStyle = '#e2e8f0'; g.font = '10px monospace';
+            const at = m => lx + (m + TOPO.MAX_DEPTH) / (TOPO.MAX_DEPTH + 560) * 220;
+            [[-TOPO.MAX_DEPTH, `-${TOPO.MAX_DEPTH}`], [0, '0'], [200, '200'], [400, '400'], [560, '560 m']].forEach(([m, t]) => g.fillText(t, at(m) - 6, ly + 28));
+            g.fillText(`curvas cada ${I} m · maestras cada ${IM} m`, lx, ly - 8);
+        }
+
+        function initCartografo() {
+            pilotModel = buildPilotModel(); scene.add(pilotModel);
+            VIEW.focusX = camera.position.x; VIEW.focusZ = camera.position.z;
+
+            // Rueda: subir = acercarse (hacia 1ª persona) · bajar = alejarse (hacia vista de ave)
+            window.addEventListener('wheel', e => {
+                if (MAP.open || (e.target.closest && e.target.closest('#settings-panel, #music-panel, #radio-panel'))) return;
+                if (VIEW.eagle) { VIEW.eR = THREE.MathUtils.clamp(VIEW.eR * (1 + e.deltaY * 0.001), 120, 2600); return; }
+                VIEW.target = THREE.MathUtils.clamp(VIEW.target - e.deltaY * 0.0012, 0, 2);
+            }, { passive: true });
+            const cycle = () => { VIEW.target = VIEW.target < 0.5 ? 1 : VIEW.target < 1.5 ? 2 : 0; };
+            window.addEventListener('keydown', e => {
+                if (e.code === 'KeyV') { VIEW.eagle = false; cycle(); }
+                if (e.target && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
+                if (e.code === 'Digit5' || e.code === 'Numpad5') toggleEagle();
+                if (e.code === 'KeyM') toggleMap2D();
+                if (e.code === 'KeyE') teToggle();
+                if (e.code === 'Escape' && MAP.open) toggleMap2D();
+            });
+            document.getElementById('btn-view').addEventListener('click', cycle);
+            document.getElementById('btn-map').addEventListener('click', toggleEagle);
+            document.getElementById('btn-editor').addEventListener('click', teToggle);
+            document.querySelector('#view-chip span[data-e]').addEventListener('click', toggleEagle);
+            teBuild();
+            document.querySelectorAll('#view-chip span[data-b]').forEach(s => s.addEventListener('click', () => { VIEW.eagle = false; VIEW.target = +s.dataset.b; }));
+
+            // Mapa: clic = viajar ahí · rueda = zoom
+            const cv = document.getElementById('map-canvas');
+            cv.addEventListener('click', e => {
+                const r = cv.getBoundingClientRect();
+                const x = MAP.cx - MAP.span / 2 + (e.clientX - r.left) / r.width * MAP.span;
+                const z = MAP.cz - MAP.span / 2 + (e.clientY - r.top) / r.height * MAP.span;
+                camera.position.set(x, Math.max(SEA_LEVEL, noise.get(x, z)) + 320, z);
+                VIEW.centerReady = false;
+                toggleMap2D();
+            });
+            cv.addEventListener('wheel', e => {
+                e.preventDefault();
+                MAP.span = THREE.MathUtils.clamp(MAP.span * (e.deltaY > 0 ? 1.25 : 0.8), 3000, 60000);
+                drawMap2D();
+            }, { passive: false });
+            document.getElementById('map-ink').addEventListener('change', e => { MAP.ink = e.target.checked; drawMap2D(); });
+            document.getElementById('map-close').addEventListener('click', toggleMap2D);
+
+            // Configuración cartográfica
+            const INTERVALS = [10, 20, 25, 50, 100];
+            const bind = (id, fn) => document.getElementById(id).addEventListener('input', e => fn(+e.target.value));
+            bind('cfg-contour', v => { TOPO_U.uTopoContour.value = v / 100; document.getElementById('val-contour').innerText = v; });
+            bind('cfg-interval', v => { TOPO_U.uTopoInterval.value = INTERVALS[v]; document.getElementById('val-interval').innerText = INTERVALS[v]; });
+            bind('cfg-ink', v => { TOPO.inkFlight = v / 100; document.getElementById('val-ink').innerText = v; });
+            document.getElementById('btn-reset-settings').addEventListener('click', () => {
+                [['cfg-contour', 85], ['cfg-interval', 1], ['cfg-ink', 35]].forEach(([id, v]) => {
+                    const el = document.getElementById(id); el.value = v; el.dispatchEvent(new Event('input'));
+                });
+            });
+        }
+
+        let frameCounter = 0;
+        function animate() {
+            requestAnimationFrame(animate);
+            const dt = Math.min(clock.getDelta(), 0.1);
+
+            updateAtmosphere(dt);
+            updateRadioSpectrum(dt);
+
+            if (isParagliding) {
+                updateParaglider(dt);
+            } else {
+                const speed = (keys['ShiftLeft'] ? 300 : 100) * dt;
+                camera.rotation.y = cameraRotY;
+                camera.rotation.x = cameraRotX;
+
+                const dir = new THREE.Vector3();
+                if (keys['KeyW']) dir.z -= 1;
+                if (keys['KeyS']) dir.z += 1;
+                if (keys['KeyA']) dir.x -= 1;
+                if (keys['KeyD']) dir.x += 1;
+                dir.applyQuaternion(camera.quaternion);
+
+                const hDir = new THREE.Vector3(dir.x, 0, dir.z);
+                if (hDir.lengthSq() > 0) camera.position.addScaledVector(hDir.normalize(), speed);
+                if (keys['KeyZ']) camera.position.y += speed;
+                if (keys['KeyX']) camera.position.y -= speed;
+
+                const groundH = Math.max(SEA_LEVEL - 5, noise.get(camera.position.x, camera.position.z) + 2);
+                if (camera.position.y < groundH) camera.position.y = THREE.MathUtils.lerp(camera.position.y, groundH, 0.2);
+            }
+
+            // Astros: rotación propia + retorno elástico del pulso
+            sunMesh.rotation.x += 0.002; sunMesh.rotation.y += 0.003;
+            moonMesh.rotation.x += 0.0015; moonMesh.rotation.y += 0.0022;
+
+            sunCurrentScale  = THREE.MathUtils.lerp(sunCurrentScale,  sunBaseScale,  0.05);
+            moonCurrentScale = THREE.MathUtils.lerp(moonCurrentScale, moonBaseScale, 0.05);
+            sunMesh.scale.setScalar(sunCurrentScale);
+            moonMesh.scale.setScalar(moonCurrentScale);
+
+            currentSunColor.lerp(baseSunColor, 0.05);
+            sunMesh.material.color.copy(currentSunColor);
+            sunMesh.material.emissive.copy(currentSunColor).multiplyScalar(0.8);
+
+            // LUNA: el beat solo mueve el BRILLO, nunca la saturación
+            moonBeatGlow = THREE.MathUtils.lerp(moonBeatGlow, 0, 0.06);
+            currentMoonColor.lerp(baseMoonColor, 0.08);
+            moonMesh.material.color.copy(currentMoonColor);
+            moonMesh.material.emissive.copy(currentMoonColor).multiplyScalar(0.45 + moonBeatGlow * 0.55);
+
+            // Nubes: se desplazan por el espacio (no solo en X) y respiran con el beat.
+            globalBeatPulse = THREE.MathUtils.lerp(globalBeatPulse, 0, dt * 2.2);
+            activeClouds.forEach(c => {
+                c.mesh.position.addScaledVector(c.driftDir, c.driftSpeed * dt);
+                const breathAmount = 1 + globalBeatPulse * 0.22 * c.breathe;
+                c.mesh.scale.setScalar(THREE.MathUtils.lerp(c.mesh.scale.x, breathAmount, dt * 4));
+
+                // ANTICOLISIÓN CON MONTAÑAS ("que no atraviesen las montañas"): el viento
+                // arrastra la nube desde un valle hacia un cerro y su altitud fija (elegida
+                // al nacer) puede quedar bajo el relieve nuevo — se hunde en la montaña y,
+                // al quedar del lado oculto de la geometría opaca, parece "desaparecer".
+                // La empujamos hacia arriba en cuanto el terreno bajo ella se acerca.
+                const localGround = noise.get(c.mesh.position.x, c.mesh.position.z);
+                const minY = localGround + CLOUD_TERRAIN_CLEARANCE;
+                if (c.mesh.position.y < minY) {
+                    c.mesh.position.y = THREE.MathUtils.lerp(c.mesh.position.y, minY, Math.min(1, dt * 3));
+                }
+
+                // Negrura: deriva muy lento y al azar entre blanca y negra cargada de lluvia.
+                c.blackTimer -= dt;
+                if (c.blackTimer <= 0) {
+                    c.blackTarget = Math.random();
+                    c.blackTimer = 25 + Math.random() * 50;
+                }
+                c.blackness = THREE.MathUtils.lerp(c.blackness, c.blackTarget, dt * 0.015);
+
+                // Lluvia: solo se ve cuando la nube está lo bastante negra.
+                const rainAmount = smoothstep(0.6, 0.85, c.blackness);
+                if (rainAmount > 0.001) {
+                    c.rainMat.opacity = rainAmount * 0.35;
+                    c.rainStreaks.forEach(s => {
+                        s.position.y -= 18 * dt;
+                        if (s.position.y < s.userData.baseOffsetY - 20) s.position.y = s.userData.baseOffsetY;
+                    });
+                } else if (c.rainMat.opacity > 0) {
+                    c.rainMat.opacity = 0;
+                }
+            });
+
+            updateChunks();
+            processChunkQueue();
+
+            frameCounter++;
+            if (frameCounter % 10 === 0) {
+                document.getElementById('coords').innerText =
+                    `Lat: ${Math.round(camera.position.x)} | Lon: ${Math.round(camera.position.z)}` + tintaLabel(camera.position.x, camera.position.z);
+            }
+
+            renderViewRig(dt);   // CARTÓGRAFO: render desde la vista elegida (ave · 3ª · 1ª)
+        }
+
+        window.onload = () => tintaInit().then(() => { init(); tintaSpawn(); });
+    </script>
+</body>
+</html>
