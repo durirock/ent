@@ -165,6 +165,7 @@
         <div class="icon-btn" id="btn-view" title="Cambiar vista: ave · 3ª · 1ª persona (V / rueda)" style="font-size:1.25rem">◎</div>
         <div class="icon-btn" id="btn-editor" title="Editor de terrenos (E)" style="font-size:1.25rem">✎</div>
         <div class="icon-btn" id="btn-map" title="Vista de águila sobre el mapa (5)" style="font-size:1.25rem">▦</div>
+        <div class="icon-btn" id="btn-funk" title="Groove funk: encender / apagar (N)" style="font-size:1.1rem">▶</div>
         <div class="icon-btn" id="btn-music" title="Núcleo funk">🎵</div>
         <div class="icon-btn" id="btn-radio" title="Radio Tagua Tagua">📻</div>
         <div class="icon-btn" id="btn-settings" title="Configuración visual">⚙️</div>
@@ -277,6 +278,7 @@
         <p><strong>Rueda / V:</strong> ave ⇄ 3ª ⇄ 1ª persona</p>
                     <p><strong>5:</strong> águila · <strong>M:</strong> mapa · <strong>E:</strong> editor</p>
                     <p><strong>Vista de ave:</strong> arrastra o WASD para recorrer · <strong>H:</strong> acariciar</p>
+                    <p><strong>En parapente:</strong> arrastrar gira la cámara en torno a Pikitipu · <strong>N:</strong> groove on/off</p>
     </div>
 
     <div id="terrain-editor">
@@ -602,7 +604,7 @@
             try {
                 const d = await tintaLoadOne(file);
                 TINTA.byFile.set(file, d); TINTA.drawings.push(d);
-                if (TINTA.ready && typeof terrRegen === 'function') terrRegen(file);   // las islas de este dibujo aparecen
+                if (TINTA.ready && typeof terrRegen === 'function') { terrRegen(file); hzInvalidate(); }   // las islas de este dibujo aparecen
                 if (typeof teFillMaps === 'function') teFillMaps();
             } catch (e) { TINTA.failed.add(file); console.warn('[Tinta Viva] sin', file, e.message); }
             TINTA.loading = null; tintaLoadHUD();
@@ -647,6 +649,8 @@
             TINTA.islands.clear();
             if (typeof chunks !== 'undefined') for (const k of chunks.keys()) if (!regenQueue.includes(k)) regenQueue.push(k);
             if (typeof VIEW !== 'undefined') { VIEW.centerReady = false; VIEW.panned = false; }
+            if (typeof hzInvalidate === 'function') hzInvalidate();
+            if (typeof OF !== 'undefined') OF.dirty = true;
             tintaLoadHUD();
         }
 
@@ -755,7 +759,7 @@
 
         // Aparece sobre el continente de inicio, mirándolo con perspectiva
         function tintaSpawn() {
-            if (typeof VIEW !== 'undefined') { VIEW.b = 0; VIEW.target = 0; VIEW.eagle = false; VIEW.panned = false; }   // siempre parte en vista de ave
+            if (typeof VIEW !== 'undefined') { VIEW.b = 2; VIEW.target = 2; VIEW.eagle = false; VIEW.panned = false; }   // abre en primera persona, como antes
             const home = TINTA.MODE !== 'procedural' && tintaIsland(0, 0);
             if (!home) { camera.position.set(0, Math.max(420, noise.get(0, 900) + 260), 900); cameraRotY = 0; cameraRotX = -0.32; return; }
             const z = (home.d.H / home.k) * 0.3;          // sobre la orilla sur del dibujo, mirando hacia adentro
@@ -1146,11 +1150,7 @@
                 musicBtn.classList.toggle('active-btn', !open);
             });
 
-            document.getElementById('btn-start-core').addEventListener('click', function() {
-                initAudioEngine();
-                this.style.display = 'none';
-                document.getElementById('music-controls').style.display = 'block';
-            });
+            document.getElementById('btn-start-core').addEventListener('click', e => { e.stopPropagation(); funkToggle(); });
 
             document.getElementById('nebula-react').addEventListener('input', e => {
                 nebulaReactivity = parseFloat(e.target.value);
@@ -1838,6 +1838,7 @@
                     <p><strong>Rueda / V:</strong> ave ⇄ 3ª ⇄ 1ª persona</p>
                     <p><strong>5:</strong> águila · <strong>M:</strong> mapa · <strong>E:</strong> editor</p>
                     <p><strong>Vista de ave:</strong> arrastra o WASD para recorrer · <strong>H:</strong> acariciar</p>
+                    <p><strong>En parapente:</strong> arrastrar gira la cámara en torno a Pikitipu · <strong>N:</strong> groove on/off</p>
                     <p class="opacity-70 mt-2">Busca ladera de cara al viento para ganar altura.</p>
                 `;
                 status.innerText = "Modo: piloto de parapente";
@@ -1858,6 +1859,7 @@
                     <p><strong>Rueda / V:</strong> ave ⇄ 3ª ⇄ 1ª persona</p>
                     <p><strong>5:</strong> águila · <strong>M:</strong> mapa · <strong>E:</strong> editor</p>
                     <p><strong>Vista de ave:</strong> arrastra o WASD para recorrer · <strong>H:</strong> acariciar</p>
+                    <p><strong>En parapente:</strong> arrastrar gira la cámara en torno a Pikitipu · <strong>N:</strong> groove on/off</p>
                 `;
                 status.innerText = "Modo: exploración libre";
                 camera.rotation.z = 0;
@@ -1887,6 +1889,11 @@
             if (isParagliding && (keys['ShiftLeft'] || keys['ShiftRight'])) {
                 pg.targetRoll  = THREE.MathUtils.clamp(pg.targetRoll  - (e.clientX - lastMousePos.x) * 0.005, -1, 1);
                 pg.targetPitch = THREE.MathUtils.clamp(pg.targetPitch - (e.clientY - lastMousePos.y) * 0.005, -1, 1);
+            } else if (isParagliding) {
+                // MODO PARAPENTE: el mouse NO pilota. Gira la cámara en torno a Pikitipu
+                // (3ª persona) o mira alrededor (1ª persona), como en Musicosmos. Se pilota con A/D/W/S.
+                VIEW.oYaw  -= (e.clientX - lastMousePos.x) * 0.005;
+                VIEW.oPitch = THREE.MathUtils.clamp(VIEW.oPitch - (e.clientY - lastMousePos.y) * 0.004, -0.6, 1.1);
             } else {
                 cameraRotY -= (e.clientX - lastMousePos.x) * 0.003;
                 cameraRotX = THREE.MathUtils.clamp(cameraRotX - (e.clientY - lastMousePos.y) * 0.003, -1.5, 1.5);
@@ -2403,6 +2410,7 @@
         }
 
         function scheduler() {
+            if (!isAudioPlaying) return;          // apagado: el secuenciador se detiene aquí
             if (step > 0 && step % 16 === 0) {
                 barsInPhase++; mutateSequence();
                 if (barsInPhase >= FASES[currentPhaseIndex].length) {
@@ -2709,7 +2717,7 @@
             g.fillStyle = '#fff'; g.fillRect(z, 0, 1, cv.height);
         }
         function teCommit() {
-            terrCompile(TE.d.cfg); terrRegen(TE.d.file); terrSave(); tePreviewSoon();
+            terrCompile(TE.d.cfg); terrRegen(TE.d.file); terrSave(); tePreviewSoon(); hzInvalidate();
         }
         function tePreviewSoon() { clearTimeout(TE.previewTimer); TE.previewTimer = setTimeout(tePreview, 40); }
 
@@ -2783,7 +2791,8 @@
         // traslada a la vista elegida y luego vuelve al piloto. Por eso el injerto es seguro.
         // =====================================================================
         const VIEW = {
-            b: 0, target: 0,             // 0 = vista de ave · 1 = tercera persona · 2 = primera persona
+            b: 2, target: 2,             // 0 = vista de ave · 1 = tercera persona · 2 = primera persona (al abrir)
+            oYaw: 0, oPitch: 0,          // órbita de la cámara en torno al avatar (mouse en modo parapente)
             birdness: 1,
             center: new THREE.Vector3(), centerReady: false,
             upDir: new THREE.Vector3(0, 0, -1),
@@ -2799,6 +2808,7 @@
             eye: new THREE.Vector3(), tgt: new THREE.Vector3(), upT: new THREE.Vector3(), cT: new THREE.Vector3(),
             qBird: new THREE.Quaternion(), q3: new THREE.Quaternion(), q: new THREE.Quaternion(),
             eyeE: new THREE.Vector3(), qE: new THREE.Quaternion(),
+            qLook: new THREE.Quaternion(), qFP: new THREE.Quaternion(), eLook: new THREE.Euler(),
             yUp: new THREE.Vector3(0, 1, 0)
         };
         let pilotModel;
@@ -2880,11 +2890,14 @@
             _vs.qBird.setFromRotationMatrix(_vs.m);
 
             // --- tercera persona: detrás y arriba de la vela ---
-            const back = PK.form === 'dragon' ? 40 : 26;   // Hakuryū es largo: la cámara se aleja
-            _vs.eye3.copy(P).addScaledVector(_vs.fwd, -back); _vs.eye3.y += back * 0.35;
+            const back = PK.form === 'dragon' ? 40 : isParagliding ? 26 : 14;   // flotando, Pikitipu se ve de cerca
+            // órbita en torno al avatar: detrás por defecto; el mouse (modo parapente) la gira e inclina
+            const oy = yaw + VIEW.oYaw, op = 0.34 + VIEW.oPitch;
+            _vs.eye3.set(P.x + Math.sin(oy) * Math.cos(op) * back, P.y + Math.sin(op) * back, P.z + Math.cos(oy) * Math.cos(op) * back);
             const g3 = noise.get(_vs.eye3.x, _vs.eye3.z);
             if (_vs.eye3.y < g3 + 4) _vs.eye3.y = g3 + 4;
-            _vs.tgt.copy(P).addScaledVector(_vs.fwd, 14); _vs.tgt.y += 1;
+            const lookAhead = Math.max(0, Math.cos(VIEW.oYaw)) * (isParagliding ? 10 : 0);   // detrás: mira algo adelante
+            _vs.tgt.copy(P).addScaledVector(_vs.fwd, lookAhead); _vs.tgt.y += 0.5;
             _vs.m.lookAt(_vs.eye3, _vs.tgt, _vs.yUp);
             _vs.q3.setFromRotationMatrix(_vs.m);
 
@@ -2892,7 +2905,14 @@
             if (b >= 1) {
                 const t = smoothstep(0, 1, b - 1);
                 _vs.eye.lerpVectors(_vs.eye3, P, t);
-                _vs.q.copy(_vs.q3).slerp(_vs.quat, t);
+                // 1ª persona en parapente: la mirada libre del mouse se suma a la del piloto
+                // y vuelve sola al frente al soltar
+                if (isParagliding && (VIEW.oYaw || VIEW.oPitch)) {
+                    _vs.qLook.setFromEuler(_vs.eLook.set(VIEW.oPitch * 0.8, VIEW.oYaw, 0, 'YXZ'));
+                    _vs.qFP.copy(_vs.quat).multiply(_vs.qLook);
+                } else _vs.qFP.copy(_vs.quat);
+                if (b > 1.5 && !isMouseDown) { const k = Math.min(1, dt * 1.1); VIEW.oYaw -= VIEW.oYaw * k; VIEW.oPitch -= VIEW.oPitch * k; }
+                _vs.q.copy(_vs.q3).slerp(_vs.qFP, t);
             } else {
                 const t = smoothstep(0, 1, b);
                 _vs.eye.lerpVectors(_vs.eyeBird, _vs.eye3, t);
@@ -2917,8 +2937,10 @@
             VIEW_DISTANCE = bird > 0.4 ? 15 : THREE.MathUtils.clamp(Math.ceil(eDist * 1.25 / CHUNK_SIZE), 10, 16);
             const eFar = Math.hypot(eDist, (VIEW_DISTANCE + 0.4) * CHUNK_SIZE);
             // el borde de lo cargado se funde con el mar (antes se veía escalonado)
-            scene.fog.near = FOG_NEAR + bird * 9000 + eg * (eFar * 0.55 - FOG_NEAR);
-            scene.fog.far  = FOG_FAR  + bird * 12000 + eg * (eFar * 0.93 - FOG_FAR);
+            // HORIZONTE: la neblina empieza lejos y el anillo lejano del mundo da profundidad
+            scene.fog.near = HZ.NEAR + bird * 9000 + eg * Math.max(0, eFar * 0.55 - HZ.NEAR);
+            scene.fog.far  = HZ.FAR  + bird * 12000 + eg * Math.max(0, eFar * 0.93 - HZ.FAR);
+            hzUpdate(P);
             CURV_U.value = CURVATURE * (1 - adapt);                // desde arriba, plano como un mapa
             TOPO_U.uTopoInk.value = THREE.MathUtils.lerp(TOPO.inkFlight, TOPO.inkBird, adapt);
             TOPO_U.uTopoView.value = adapt;
@@ -3066,6 +3088,7 @@
         function initCartografo() {
             pilotModel = buildPilotModel(); scene.add(pilotModel);
             kpEcoInit();   // Pikitipu en la vela, Hakuryū, ecosistema y conexión a KP
+            funkInit();    // el groove arranca con tu primer gesto; ■ / N lo apagan
             VIEW.focusX = camera.position.x; VIEW.focusZ = camera.position.z;
 
             // Rueda: subir = acercarse (hacia 1ª persona) · bajar = alejarse (hacia vista de ave)
@@ -3497,7 +3520,11 @@ void main(){
                         .then(r => r && r.ok && pkMood(`Llama dragona: Pv ×1.5 (+${r.bonus})`));
                 } else AV.piki._salto = 1;
                 ecoGrow(m.priority || 'B', days);
-                pkToast('Pendiente lograda', `${m.task_name || ''}${pv ? ' · +' + pv + ' Pv' : ''}`, PK.lastUserColor);
+                // OFRENDA: al azar árbol / nube / bandada / cardumen; la categoría decide el ser, la presión su tamaño
+                const cat = /^[ABC]$/.test(m.priority) ? m.priority : 'B';
+                const of = ofSpawn(cat, days);
+                const ofTxt = of ? `Brotó ${OF_NAMES[of.k][cat]} (${cat})${days ? ` · ${days} días de presión → ×${of.p.toFixed(1)}` : ''}` : '';
+                pkToast('Pendiente lograda', `${m.task_name || ''}${pv ? ' · +' + pv + ' Pv' : ''}${ofTxt ? '<br>' + ofTxt : ''}`, PK.lastUserColor);
                 setTimeout(leerKPEgg, 2500);
             },
             LEVEL_UP(m) {
@@ -3585,8 +3612,7 @@ void main(){
         }
         function ecoGrow(priority, days) {
             const add = ({ A: .05, B: .035, C: .025 }[priority] || .03) * (1 + Math.min(days, 30) / 30);
-            ECO.level = Math.min(1, ECO.level + add); ecoSave();
-            ecoBurstFlock();
+            ECO.level = Math.min(1, ECO.level + add * 0.5); ecoSave();   // el bosque de fondo crece un poco; lo vivo llega como ofrenda
         }
         // chunks: aplicar la densidad actual (instantáneo); lo nuevo crece animado
         function ecoApplyTrees() {
@@ -3621,7 +3647,7 @@ void main(){
         const ECO_LEAF_DRY = new THREE.Color(0x4b5a33), ECO_LEAF_LUSH = new THREE.Color(0x0e5c1f);
 
         // ---------- AVES: bandadas que llenan el cielo ----------
-        const BIRD_MAX = 96;
+        const BIRD_MAX = 420;
         function ecoInitBirds() {
             const g = new THREE.BufferGeometry();
             // V con las puntas arriba: al escalar Y en negativo, aletea
@@ -3650,25 +3676,33 @@ void main(){
         const _bq = new THREE.Quaternion(), _bv = new THREE.Vector3(), _bs = new THREE.Vector3(), _bm = new THREE.Matrix4(), _be = new THREE.Euler();
         function ecoBirdsUpdate(dt, t, P, viewScale) {
             if (!ECO.birdMesh) return;
-            const want = Math.round(ECO.shown * 72);
-            let have = ECO.flocks.reduce((a, f) => a + f.n, 0);
+            const want = Math.round(ECO.shown * 60);
+            let have = ECO.flocks.filter(f => !f.offering).reduce((a, f) => a + f.n, 0);
             while (have < want) { const f = ecoNewFlock(P, false); ECO.flocks.push(f); have += f.n; }
-            while (have > want + 6 && ECO.flocks.length) { have -= ECO.flocks.pop().n; }
-            ECO.flocks.forEach(f => { if (Math.hypot(f.ax - P.x, f.az - P.z) > 1100) Object.assign(f, ecoNewFlock(P, false), { n: f.n }); });
+            while (have > want + 6) { const i = ECO.flocks.findIndex(f => !f.offering); if (i < 0) break; have -= ECO.flocks[i].n; ECO.flocks.splice(i, 1); }
+            ECO.flocks.forEach(f => {
+                if (Math.hypot(f.ax - P.x, f.az - P.z) <= 1400) return;
+                if (f.offering) {   // tus bandadas te acompañan: reaparecen cerca, a su altura sobre el suelo
+                    const a = Math.random() * 6.28, rel = f.ay - Math.max(SEA_LEVEL, noise.get(f.ax, f.az));
+                    f.ax = P.x + Math.cos(a) * 300; f.az = P.z + Math.sin(a) * 300;
+                    f.ay = Math.max(SEA_LEVEL, noise.get(f.ax, f.az)) + Math.max(60, rel);
+                } else Object.assign(f, ecoNewFlock(P, false), { n: f.n });
+            });
             let k = 0;
             const all = ECO.flocks.concat(ECO.burst);
             for (const f of all) {
                 f.age += dt; f.ph += f.w * dt;
                 if (f.burst) { f.r = Math.min(160, f.r + dt * 18); f.ay += dt * 9 * f.climb; }
                 const cx = f.ax + Math.cos(f.ph) * f.r, cz = f.az + Math.sin(f.ph) * f.r;
-                const heading = Math.atan2(-Math.sin(f.ph) * f.w, Math.cos(f.ph) * f.w);   // tangente del giro
+                const heading = Math.atan2(-Math.sin(f.ph) * f.w, Math.cos(f.ph) * f.w);
+                const size = f.size || 1.3, amp = f.flapAmp ?? 1, fsp = f.flapSpeed || 9;
                 for (let i = 0; i < f.n && k < BIRD_MAX; i++, k++) {
-                    const s = f.seed + i * 7.31;
-                    const ox = Math.sin(s) * 14 + Math.sin(t * .7 + s) * 3, oz = Math.cos(s * 1.3) * 14, oy = Math.sin(s * 2.1) * 6 + Math.sin(t * .9 + s) * 2;
+                    const s = f.seed + i * 7.31, sp = size > 2 ? 4 : 1;   // los grandes planean separados
+                    const ox = Math.sin(s) * 14 * sp + Math.sin(t * .7 + s) * 3, oz = Math.cos(s * 1.3) * 14 * sp, oy = Math.sin(s * 2.1) * 6 + Math.sin(t * .9 + s) * 2;
                     _bv.set(cx + ox, f.ay + oy, cz + oz);
-                    const flap = Math.sin(t * 9 + s * 3);
-                    _be.set(0, -heading + Math.PI / 2, 0); _bq.setFromEuler(_be);
-                    const sz = 1.3 * viewScale;
+                    const flap = 1 - amp + amp * Math.sin(t * fsp + s * 3);
+                    _be.set(0, -heading + Math.PI / 2, size > 2 ? Math.sin(t * .5 + s) * .25 : 0); _bq.setFromEuler(_be);
+                    const sz = size * viewScale;
                     _bs.set(sz, sz * flap, sz);
                     _bm.compose(_bv, _bq, _bs); ECO.birdMesh.setMatrixAt(k, _bm);
                 }
@@ -3768,6 +3802,7 @@ void main(){
             AV.dragon = new DragonAvatar(); AV.dragon.holder.visible = false;
             const dh = new THREE.Group(); dh.scale.setScalar(DRAGON_SCALE); dh.position.y = 1.5; dh.add(AV.dragon.holder); AV.root.add(dh);
             ecoInitBirds();
+            hzInit(); ofInit();
             document.getElementById('ph-evo').addEventListener('click', pkEvolve);
             document.getElementById('ph-ret').addEventListener('click', pkReturn);
             window.addEventListener('keydown', e => { if (e.code === 'KeyH' && !/INPUT|SELECT/.test(e.target.tagName)) PK.petting = true; });
@@ -3804,6 +3839,9 @@ void main(){
             AV.piki.update(t, dt);
             if (AV.dragon.holder.visible) AV.dragon.update(t, dt);
             pkEvoUpdate(dt);
+            // la vela existe solo en modo parapente; si no, Pikitipu flota y respira en el aire
+            AV.wing.visible = isParagliding && AV.pikiHolder.visible && (PK.evoPhase !== 'materialize' || PK.evoTimer < 1.0);
+            AV.pikiHolder.position.y = isParagliding ? 0 : 0.6;
 
             // el avatar en el mundo
             AV.root.visible = b < 1.85 || eg > 0.01;
@@ -3820,8 +3858,338 @@ void main(){
             ECO.shown += (ECO.level - ECO.shown) * Math.min(1, dt * .25);
             globalLeafMat.color.copy(ECO_LEAF_DRY).lerp(ECO_LEAF_LUSH, Math.min(1, ECO.shown * 1.4));
             ecoGrowthUpdate(dt);
+            ofUpdate(dt, t, P);
             ecoBirdsUpdate(dt, t, P, Math.max(1, adapt * camH * 0.004));
             if (frameCounter % 6 === 0) pkHUD();
+        }
+
+        // =====================================================================
+        // HORIZONTE — un anillo lejano del mismo mundo (hasta ~9 km) bajo la neblina
+        // ---------------------------------------------------------------------
+        // Malla gruesa del mismo noise.get (montañas reales, mar real) que se rehace en
+        // segundo plano cada ~1.2 km de viaje. Dentro del radio de los chunks se hunde
+        // (no compite con el detalle cercano); la curvatura del planeta la hace caer
+        // más allá del horizonte. La neblina ahora empieza lejos: hay profundidad.
+        // =====================================================================
+        const HZ = {
+            N: 112, span: 18000, cx: 1e9, cz: 1e9, job: null, mesh: null, water: null,
+            NEAR: 2600, FAR: 13000,                       // neblina de vuelo (antes 1440 → 1664 m)
+            U: { uPilot: { value: new THREE.Vector2() }, uNearR: { value: 1500 } }
+        };
+        function hzShader(shader) {
+            shader.uniforms.uPilot = HZ.U.uPilot; shader.uniforms.uNearR = HZ.U.uNearR;
+            shader.vertexShader = 'uniform vec2 uPilot;\nuniform float uNearR;\n' + shader.vertexShader.replace('#include <begin_vertex>',
+                `#include <begin_vertex>
+                {   vec4 hzW = modelMatrix * vec4(position, 1.0);
+                    float hzD = distance(hzW.xz, uPilot);
+                    transformed.y -= (1.0 - smoothstep(uNearR - 260.0, uNearR, hzD)) * 600.0; }`);
+            worldCurvatureShader.onBeforeCompile(shader);
+        }
+        function hzInit() {
+            const geo = new THREE.PlaneGeometry(HZ.span, HZ.span, HZ.N, HZ.N); geo.rotateX(-Math.PI / 2);
+            geo.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(geo.attributes.position.count * 3), 3));
+            const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, metalness: 0 });
+            mat.onBeforeCompile = hzShader;
+            HZ.mesh = new THREE.Mesh(geo, mat); HZ.mesh.frustumCulled = false; HZ.mesh.visible = false;
+            const wg = new THREE.PlaneGeometry(HZ.span, HZ.span, 64, 64); wg.rotateX(-Math.PI / 2);
+            const wm = new THREE.MeshStandardMaterial({ color: 0x2a7fb8, roughness: 0.08, metalness: 0.2, transparent: true, opacity: 0.6, depthWrite: false });
+            wm.onBeforeCompile = hzShader;
+            HZ.water = new THREE.Mesh(wg, wm); HZ.water.position.y = SEA_LEVEL - 0.35; HZ.water.frustumCulled = false; HZ.water.visible = false;
+            scene.add(HZ.mesh, HZ.water);
+        }
+        // reconstrucción repartida en varios cuadros (filas por cuadro) para no cortar la fluidez
+        function hzUpdate(P) {
+            HZ.U.uPilot.value.set(P.x, P.z);
+            HZ.U.uNearR.value = (VIEW_DISTANCE - 0.6) * CHUNK_SIZE;
+            if (!HZ.job && Math.hypot(P.x - HZ.cx, P.z - HZ.cz) > 1200) {
+                const n = HZ.N + 1;
+                HZ.job = { cx: Math.round(P.x / 200) * 200, cz: Math.round(P.z / 200) * 200, row: 0, h: new Float32Array(n * n), isl: new Array(n * n), m: new Float32Array(n * n) };
+            }
+            const J = HZ.job; if (!J) return;
+            const n = HZ.N + 1, step = HZ.span / HZ.N;
+            for (let r = 0; r < 10 && J.row < n; r++, J.row++) {
+                const z = J.cz - HZ.span / 2 + J.row * step;
+                for (let c = 0; c < n; c++) {
+                    const k = J.row * n + c;
+                    J.h[k] = noise.get(J.cx - HZ.span / 2 + c * step, z);
+                    J.isl[k] = TINTA.lastIsland; J.m[k] = TINTA.lastMask;
+                }
+            }
+            if (J.row < n) return;
+            const geo = HZ.mesh.geometry, pos = geo.attributes.position.array, col = geo.attributes.color.array, cc = new THREE.Color();
+            for (let k = 0; k < n * n; k++) pos[k * 3 + 1] = J.h[k];
+            geo.attributes.position.needsUpdate = true; geo.computeVertexNormals();
+            const nor = geo.attributes.normal.array, L = TOPO.LIGHT;
+            for (let k = 0; k < n * n; k++) {
+                topoColorAt(J.h[k], J.isl[k], J.m[k], cc);
+                const dot = nor[k * 3] * L.x + nor[k * 3 + 1] * L.y + nor[k * 3 + 2] * L.z;
+                cc.multiplyScalar(1 + (THREE.MathUtils.clamp(0.3 + dot, 0.35, 1.25) - 1) * TOPO.HILLSHADE);
+                col[k * 3] = cc.r; col[k * 3 + 1] = cc.g; col[k * 3 + 2] = cc.b;
+            }
+            geo.attributes.color.needsUpdate = true;
+            HZ.mesh.position.set(J.cx, 0, J.cz); HZ.water.position.set(J.cx, SEA_LEVEL - 0.35, J.cz);
+            HZ.cx = J.cx; HZ.cz = J.cz; HZ.job = null;
+            HZ.mesh.visible = HZ.water.visible = true;
+        }
+        // un dibujo nuevo o un cambio de modo/editor: rehacer el horizonte
+        function hzInvalidate() { HZ.cx = 1e9; HZ.job = null; }
+
+        // =====================================================================
+        // OFRENDAS — cada pendiente lograda deja algo vivo en el mundo
+        // ---------------------------------------------------------------------
+        // Al azar: un árbol, una nube, una bandada o un cardumen (si hay agua cerca).
+        // La CATEGORÍA (A/B/C) decide qué ser es; la PRESIÓN liberada (días que la
+        // pendiente resistió) decide su tamaño. Quedan guardadas: el mundo se va llenando.
+        // =====================================================================
+        const OF_STORE = 'aerocosmos.ofrendas.v1', OF_MAX = 260;
+        const OF = { list: [], trees: {}, cloudMesh: null, fishMesh: null, dirty: true, lastSave: 0 };
+        try { OF.list = JSON.parse(localStorage.getItem(OF_STORE) || '[]') || []; } catch (_) { OF.list = []; }
+        function ofSave() { try { localStorage.setItem(OF_STORE, JSON.stringify(OF.list)); } catch (_) {} }
+        const ofPressure = days => 1 + Math.min(days || 0, 120) / 40;          // 0 días → ×1 · 40 → ×2 · 120+ → ×4
+        function ofRand(seed) { let s = seed * 9301 + 49297; return () => { s = (s * 9301 + 49297) % 233280; return s / 233280; }; }
+
+        // ---- geometrías: unir piezas con color por vértice (un solo dibujo por categoría) ----
+        function ofMerge(parts) {
+            const pos = [], col = [];
+            parts.forEach(([g, color, m]) => {
+                const gg = g.index ? g.toNonIndexed() : g; gg.applyMatrix4(m);
+                const p = gg.attributes.position.array, c = new THREE.Color(color);
+                for (let i = 0; i < p.length; i += 3) { pos.push(p[i], p[i + 1], p[i + 2]); col.push(c.r, c.g, c.b); }
+            });
+            const out = new THREE.BufferGeometry();
+            out.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+            out.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+            out.computeVertexNormals();
+            return out;
+        }
+        const ofM = (x, y, z, sx = 1, sy = sx, sz = sx, ry = 0) => new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, ry, 0)), new THREE.Vector3(sx, sy, sz));
+        // A · Árbol mayor: tronco ancho, copa amplia de varias masas, frutos dorados
+        // B · Conífera: tronco recto y pisos de conos (araucaria/pino)
+        // C · Arbusto florido: bajo, redondo, salpicado de flores
+        const OF_TREE_GEO = {
+            A: () => ofMerge([
+                [new THREE.CylinderGeometry(0.55, 0.95, 8, 7), 0x5a3a22, ofM(0, 4, 0)],
+                [new THREE.CylinderGeometry(0.25, 0.4, 4, 5), 0x5a3a22, ofM(1.4, 7.4, 0, 1, 1, 1, 0).multiply(new THREE.Matrix4().makeRotationZ(-0.7))],
+                [new THREE.IcosahedronGeometry(4.6, 1), 0x1f6b2a, ofM(0, 11, 0, 1, 0.8, 1)],
+                [new THREE.IcosahedronGeometry(3.4, 1), 0x2f8a35, ofM(3.2, 9.6, 1, 1, 0.8, 1)],
+                [new THREE.IcosahedronGeometry(3.1, 1), 0x267a30, ofM(-3, 9.8, -1.2, 1, 0.8, 1)],
+                [new THREE.IcosahedronGeometry(2.6, 1), 0x3c9a3c, ofM(0.5, 14, -0.5, 1, 0.8, 1)],
+                ...[[2.6, 12, 3], [-3.4, 10.5, 2.2], [3.8, 9, -2], [-1, 13.6, 3]].map(([x, y, z]) => [new THREE.IcosahedronGeometry(0.42, 0), 0xffc93c, ofM(x, y, z)])
+            ]),
+            B: () => ofMerge([
+                [new THREE.CylinderGeometry(0.3, 0.5, 10, 6), 0x4a2f1c, ofM(0, 5, 0)],
+                [new THREE.ConeGeometry(3.6, 4.6, 8), 0x14532d, ofM(0, 5.2, 0)],
+                [new THREE.ConeGeometry(2.9, 4.0, 8), 0x166534, ofM(0, 7.8, 0, 1, 1, 1, 0.4)],
+                [new THREE.ConeGeometry(2.1, 3.4, 8), 0x15803d, ofM(0, 10.2, 0, 1, 1, 1, 0.8)],
+                [new THREE.ConeGeometry(1.2, 2.6, 8), 0x16a34a, ofM(0, 12.3, 0)]
+            ]),
+            C: () => ofMerge([
+                [new THREE.CylinderGeometry(0.18, 0.28, 1.4, 5), 0x6b4a2b, ofM(0, 0.7, 0)],
+                [new THREE.IcosahedronGeometry(1.7, 1), 0x4d9a3a, ofM(0, 2.2, 0, 1.25, 0.85, 1.25)],
+                [new THREE.IcosahedronGeometry(1.1, 1), 0x5cad44, ofM(1.2, 1.7, 0.4)],
+                ...[[0.9, 3.1, 0.8], [-1.1, 2.8, 0.6], [0.2, 3.2, -1.2], [1.6, 2.2, -0.6], [-1.5, 2.0, -0.7], [-0.3, 2.6, 1.6]]
+                    .map(([x, y, z], i) => [new THREE.IcosahedronGeometry(0.28, 0), i % 2 ? 0xff7ab8 : 0xfff1a8, ofM(x, y, z)])
+            ])
+        };
+        // peces: cuerpo rombo + cola; A = gran ballena/manta, B = cardumen plateado, C = enjambre de peces dorados
+        function ofFishGeo() {
+            return ofMerge([
+                [new THREE.OctahedronGeometry(1, 0), 0xffffff, ofM(0, 0, 0, 0.42, 0.34, 1.25)],
+                [new THREE.ConeGeometry(0.45, 0.7, 4), 0xffffff, new THREE.Matrix4().compose(new THREE.Vector3(0, 0, 1.35), new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI / 2, 0, 0)), new THREE.Vector3(1, 1, 0.3))]
+            ]);
+        }
+        const OF_FISH = { A: { n: [1, 2], s: 7, col: 0x47607a, depth: 7, speed: 0.10, r: [40, 80] },
+                          B: { n: [8, 3], s: 1.4, col: 0xcfd8e3, depth: 3.5, speed: 0.28, r: [18, 35] },
+                          C: { n: [14, 5], s: 0.7, col: 0xffa53c, depth: 2.2, speed: 0.45, r: [10, 22] } };
+        const OF_CLOUD = { A: { puffs: 20, s: 26, tower: 1 }, B: { puffs: 11, s: 18, tower: 0.35 }, C: { puffs: 5, s: 11, tower: 0.05 } };
+        const OF_BIRDS = { A: { n: [2, 1], s: 3.4, flap: 0.25, fs: 2.5, w: 0.06, r: [160, 260], alt: [240, 380] },
+                           B: { n: [6, 2], s: 1.3, flap: 1.0, fs: 9, w: 0.16, r: [60, 120], alt: [90, 200] },
+                           C: { n: [12, 5], s: 0.7, flap: 1.0, fs: 16, w: 0.32, r: [25, 60], alt: [50, 120] } };
+
+        function ofInit() {
+            const treeMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, flatShading: true });
+            treeMat.onBeforeCompile = worldCurvatureShader.onBeforeCompile;
+            ['A', 'B', 'C'].forEach(c => {
+                const m = new THREE.InstancedMesh(OF_TREE_GEO[c](), treeMat, OF_MAX); m.count = 0; m.frustumCulled = false;
+                OF.trees[c] = m; scene.add(m);
+            });
+            const cm = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, transparent: true, opacity: 0.88, depthWrite: false });
+            cm.onBeforeCompile = worldCurvatureShader.onBeforeCompile;
+            OF.cloudMesh = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), cm, 2400); OF.cloudMesh.count = 0; OF.cloudMesh.frustumCulled = false;
+            OF.cloudMesh.setColorAt(0, new THREE.Color(1, 1, 1));
+            const fm = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.4, metalness: 0.3 });
+            fm.onBeforeCompile = worldCurvatureShader.onBeforeCompile;
+            OF.fishMesh = new THREE.InstancedMesh(ofFishGeo(), fm, 600); OF.fishMesh.count = 0; OF.fishMesh.frustumCulled = false;
+            OF.fishMesh.setColorAt(0, new THREE.Color(1, 1, 1));
+            scene.add(OF.cloudMesh, OF.fishMesh);
+            // las bandadas guardadas vuelven al cielo
+            OF.list.filter(o => o.k === 'birds').forEach(ofAttachFlock);
+        }
+        function ofAttachFlock(o) {
+            const B = OF_BIRDS[o.c], R = ofRand(o.s);
+            ECO.flocks.push({ ax: o.x, az: o.z, ay: o.y, r: B.r[0] + R() * (B.r[1] - B.r[0]), w: B.w * (R() < .5 ? -1 : 1) * (0.8 + R() * 0.4), ph: R() * 6.28,
+                n: Math.round(B.n[0] + B.n[1] * o.p), seed: o.s, burst: false, life: Infinity, age: 0, climb: 0,
+                size: B.s * (0.75 + 0.25 * o.p), flapAmp: B.flap, flapSpeed: B.fs, offering: o });
+        }
+
+        // ---- dónde nace cada ofrenda ----
+        function ofFindSpot(P, kind) {
+            const fwd = Math.atan2(-Math.sin(cameraRotY), -Math.cos(cameraRotY));
+            for (let i = 0; i < 48; i++) {
+                const a = fwd + (Math.random() - 0.5) * (i < 24 ? 1.6 : 6.28);
+                const d = kind === 'fish' ? 40 + Math.random() * 700 : kind === 'tree' ? 35 + Math.random() * (i < 24 ? 180 : 450) : 120 + Math.random() * 280;
+                const x = P.x + Math.cos(a) * d, z = P.z + Math.sin(a) * d;
+                const h = noise.get(x, z);
+                if (kind === 'fish') { if (h < SEA_LEVEL - 5) return { x, z, y: SEA_LEVEL }; continue; }
+                if (kind === 'tree') {
+                    if (h < SEA_LEVEL + 3) continue;
+                    const s = Math.abs(noise.get(x + 5, z) - h) + Math.abs(noise.get(x, z + 5) - h);
+                    if (s > 6) continue;
+                    return { x, z, y: h };
+                }
+                return { x, z, y: Math.max(SEA_LEVEL, h) };
+            }
+            return null;
+        }
+        function ofSpawn(cat, days) {
+            const P = camera.position, p = ofPressure(days), kinds = ['tree', 'cloud', 'birds', 'fish'];
+            for (let tries = 0; tries < 6; tries++) {
+                const k = kinds[Math.floor(Math.random() * kinds.length)];
+                const spot = ofFindSpot(P, k);
+                if (!spot) { kinds.splice(kinds.indexOf(k), 1); if (!kinds.length) return null; continue; }
+                const o = { k, c: cat, p: +p.toFixed(2), x: Math.round(spot.x), z: Math.round(spot.z), y: Math.round(spot.y * 10) / 10,
+                            t: Date.now(), s: Math.floor(Math.random() * 1e6), m: TINTA.MODE, born: performance.now() };
+                if (k === 'cloud') o.y = spot.y + (cat === 'A' ? 260 : cat === 'B' ? 210 : 170) + Math.random() * 60;
+                if (k === 'birds') { const B = OF_BIRDS[cat]; o.y = spot.y + B.alt[0] + Math.random() * (B.alt[1] - B.alt[0]); }
+                OF.list.push(o);
+                while (OF.list.length > OF_MAX) OF.list.shift();
+                if (k === 'birds') ofAttachFlock(o);
+                OF.dirty = true; ofSave();
+                return o;
+            }
+            return null;
+        }
+        const OF_NAMES = {
+            tree:  { A: 'un árbol mayor', B: 'una conífera', C: 'un arbusto florido' },
+            cloud: { A: 'un cumulonimbo', B: 'un cúmulo', C: 'una nube ligera' },
+            birds: { A: 'cóndores planeando', B: 'una bandada', C: 'un enjambre de golondrinas' },
+            fish:  { A: 'un gran ser marino', B: 'un cardumen plateado', C: 'peces dorados' }
+        };
+
+        // ---- dibujar ofrendas ----
+        const _of = { m: new THREE.Matrix4(), q: new THREE.Quaternion(), v: new THREE.Vector3(), s: new THREE.Vector3(), e: new THREE.Euler(), c: new THREE.Color() };
+        function ofUpdate(dt, t, P) {
+            const now = performance.now(), mode = TINTA.MODE;
+            // árboles (se reconstruyen al cambiar la lista; los recién nacidos crecen 3 s)
+            const growing = OF.list.some(o => o.k === 'tree' && o.born && now - o.born < 3200);
+            if (OF.dirty || growing) {
+                const idx = { A: 0, B: 0, C: 0 };
+                OF.list.forEach(o => {
+                    if (o.k !== 'tree' || (o.m || 'dibujos') !== mode) return;
+                    const g = o.born ? Math.min(1, (now - o.born) / 3000) : 1, e = 1 - Math.pow(1 - g, 3);
+                    const base = { A: 1.45, B: 1.15, C: 0.95 }[o.c] * (0.7 + 0.3 * o.p);
+                    _of.e.set(0, (o.s % 628) / 100, 0); _of.q.setFromEuler(_of.e);
+                    _of.v.set(o.x, o.y - 0.3, o.z); _of.s.setScalar(Math.max(0.02, base * e));
+                    _of.m.compose(_of.v, _of.q, _of.s); OF.trees[o.c].setMatrixAt(idx[o.c]++, _of.m);
+                });
+                ['A', 'B', 'C'].forEach(c => { OF.trees[c].count = idx[c]; OF.trees[c].instanceMatrix.needsUpdate = true; });
+            }
+            // nubes: derivan con el viento; si quedan muy lejos, vuelven a formarse cerca de ti
+            let ci = 0; const wind = 6;
+            for (const o of OF.list) {
+                if (o.k !== 'cloud') continue;
+                const C = OF_CLOUD[o.c], R = ofRand(o.s);
+                let cx = o.x + wind * (Date.now() - o.t) / 1000, cz = o.z;
+                if (Math.hypot(cx - P.x, cz - P.z) > 4200) {
+                    o.x = Math.round(P.x - 2500 + Math.random() * 600); o.z = Math.round(P.z + (Math.random() - .5) * 3000); o.t = Date.now();
+                    cx = o.x; cz = o.z; OF.lastSave = 0;
+                }
+                const birth = o.born ? Math.min(1, (now - o.born) / 4000) : 1;
+                const k = C.s * (0.7 + 0.3 * o.p) * birth, breathe = 1 + Math.sin(t * 0.4 + o.s) * 0.03;
+                for (let i = 0; i < C.puffs && ci < 2400; i++, ci++) {
+                    const up = R(), ang = R() * 6.28, rr = R();
+                    const hgt = up * up * C.tower * 3.2;                                   // A: torre alta con yunque
+                    const spread = (1 - C.tower * 0.5 * up) * (1 + (o.c === 'A' && up > 0.82 ? 1.4 : 0));
+                    _of.v.set(cx + Math.cos(ang) * rr * spread * k, o.y + hgt * k, cz + Math.sin(ang) * rr * spread * k * 0.7);
+                    const ps = k * (0.45 + R() * 0.45) * breathe;
+                    _of.s.set(ps, ps * (o.c === 'C' ? 0.45 : 0.75), ps); _of.q.identity();
+                    _of.m.compose(_of.v, _of.q, _of.s); OF.cloudMesh.setMatrixAt(ci, _of.m);
+                    const shade = o.c === 'A' ? 0.55 + up * 0.45 : 0.86 + up * 0.14;           // base gris del cumulonimbo
+                    _of.c.setRGB(shade, shade, Math.min(1, shade * 1.03)); OF.cloudMesh.setColorAt(ci, _of.c);
+                }
+            }
+            OF.cloudMesh.count = ci; OF.cloudMesh.instanceMatrix.needsUpdate = true;
+            if (OF.cloudMesh.instanceColor) OF.cloudMesh.instanceColor.needsUpdate = true;
+            OF.cloudMesh.visible = !cloudsRoot || cloudsRoot.visible;
+            // peces: nadan en círculos bajo el agua; B y C saltan de vez en cuando
+            let fi = 0;
+            for (const o of OF.list) {
+                if (o.k !== 'fish' || (o.m || 'dibujos') !== mode) continue;
+                if (Math.hypot(o.x - P.x, o.z - P.z) > 2500) continue;
+                const F = OF_FISH[o.c], R = ofRand(o.s), n = Math.round(F.n[0] + F.n[1] * o.p);
+                const rad = F.r[0] + R() * (F.r[1] - F.r[0]), dir = R() < .5 ? -1 : 1;
+                for (let i = 0; i < n && fi < 600; i++, fi++) {
+                    const ph = t * F.speed * dir + i * 0.35 + R() * 0.2, rr = rad * (0.75 + R() * 0.5);
+                    const x = o.x + Math.cos(ph) * rr, z = o.z + Math.sin(ph) * rr;
+                    let y = SEA_LEVEL - F.depth * (0.8 + R() * 0.4);
+                    const jumpCycle = (t * 0.13 + i * 0.37 + o.s) % 1;
+                    if (o.c !== 'A' && i % 5 === 0 && jumpCycle < 0.06) y = SEA_LEVEL + Math.sin(jumpCycle / 0.06 * Math.PI) * 3.5 * F.s;
+                    const heading = Math.atan2(-Math.sin(ph) * dir, Math.cos(ph) * dir);
+                    _of.e.set(0, -heading + Math.PI / 2 + Math.PI, Math.sin(t * 4 + i) * 0.15); _of.q.setFromEuler(_of.e);
+                    const sz = F.s * (0.75 + 0.25 * o.p) * (o.born ? Math.min(1, (now - o.born) / 2000) : 1);
+                    _of.v.set(x, y, z); _of.s.set(sz, sz, sz);
+                    _of.m.compose(_of.v, _of.q, _of.s); OF.fishMesh.setMatrixAt(fi, _of.m);
+                    _of.c.set(F.col); OF.fishMesh.setColorAt(fi, _of.c);
+                }
+            }
+            OF.fishMesh.count = fi; OF.fishMesh.instanceMatrix.needsUpdate = true;
+            if (OF.fishMesh.instanceColor) OF.fishMesh.instanceColor.needsUpdate = true;
+            OF.dirty = false;
+            if (now - OF.lastSave > 30000) { OF.lastSave = now; ofSave(); }
+        }
+
+        // =====================================================================
+        // GROOVE FUNK — arranca solo (con tu primer gesto: el navegador no deja sonar antes)
+        // y se apaga con ■ o la tecla N. Si lo apagas, queda apagado la próxima vez.
+        // =====================================================================
+        const FUNK_PREF = 'aerocosmos.funk';
+        function funkStart() {
+            ensureAudioCtx();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            if (!noiseBuffer) {
+                const bufferSize = audioCtx.sampleRate * 2;
+                noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const out = noiseBuffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) out[i] = Math.random() * 2 - 1;
+            }
+            if (!isAudioPlaying) { isAudioPlaying = true; runDirectorLogic(); scheduler(); }
+            try { localStorage.setItem(FUNK_PREF, 'on'); } catch (_) {}
+            funkUI();
+        }
+        function funkStop() {
+            isAudioPlaying = false;                       // el secuenciador se detiene en el próximo paso
+            try { localStorage.setItem(FUNK_PREF, 'off'); } catch (_) {}
+            funkUI();
+        }
+        function funkToggle() { isAudioPlaying ? funkStop() : funkStart(); }
+        function funkUI() {
+            const b = document.getElementById('btn-funk'), c = document.getElementById('btn-start-core');
+            if (b) { b.classList.toggle('active-btn', isAudioPlaying); b.textContent = isAudioPlaying ? '■' : '▶'; b.title = isAudioPlaying ? 'Apagar groove funk (N)' : 'Encender groove funk (N)'; }
+            if (c) c.textContent = isAudioPlaying ? 'Detener groove' : 'Iniciar groove';
+            const mc = document.getElementById('music-controls'); if (mc && isAudioPlaying) mc.style.display = 'block';
+        }
+        function funkInit() {
+            let pref = 'on'; try { pref = localStorage.getItem(FUNK_PREF) || 'on'; } catch (_) {}
+            const first = (e) => {
+                // el propio botón ■/▶, el del panel o la tecla N deciden por sí mismos
+                if (e && ((e.target && (e.target.id === 'btn-funk' || e.target.id === 'btn-start-core')) || e.code === 'KeyN')) return;
+                window.removeEventListener('pointerdown', first, true); window.removeEventListener('keydown', first, true);
+                if (pref !== 'off' && !isAudioPlaying) funkStart();
+            };
+            window.addEventListener('pointerdown', first, true); window.addEventListener('keydown', first, true);
+            document.getElementById('btn-funk').addEventListener('click', e => { e.stopPropagation(); pref = 'manual'; funkToggle(); });
+            window.addEventListener('keydown', e => { if (e.code === 'KeyN' && !/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) { pref = 'manual'; funkToggle(); } });
+            funkUI();
         }
 
         let frameCounter = 0;
