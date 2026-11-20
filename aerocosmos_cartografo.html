@@ -4668,8 +4668,14 @@ void main(){
             const g = new THREE.BufferGeometry();
             g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 6), 3));
             g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(n * 6), 3));
-            const m = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false });
-            m.onBeforeCompile = worldCurvatureShader.onBeforeCompile;
+            g.setAttribute('aA', new THREE.BufferAttribute(new Float32Array(n * 2), 1));
+            // mezcla normal + transparencia por vértice: se lee igual sobre cielo claro, arena o agua
+            const m = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, fog: false });
+            m.onBeforeCompile = (sh) => {
+                worldCurvatureShader.onBeforeCompile(sh);
+                sh.vertexShader = 'attribute float aA;\nvarying float vA;\n' + sh.vertexShader.replace('void main() {', 'void main() {\n vA = aA;');
+                sh.fragmentShader = 'varying float vA;\n' + sh.fragmentShader.replace('#include <dithering_fragment>', '#include <dithering_fragment>\n gl_FragColor.a *= vA;');
+            };
             CUR.mesh = new THREE.LineSegments(g, m); CUR.mesh.frustumCulled = false; scene.add(CUR.mesh);
             CUR.w = new Float32Array(n); CUR.base = new Float32Array(n * 3); CUR.ph = new Float32Array(n);
             for (let i = 0; i < n; i++) CUR.ph[i] = Math.random() * 40;
@@ -4698,31 +4704,36 @@ void main(){
             const per = Math.ceil(n / (IS_MOBILE ? 10 : 6));
             for (let s = 0; s < per; s++) {
                 const k = CUR.cursor; CUR.cursor = (CUR.cursor + 1) % n;
-                const x = CUR.base[k * 3], y = CUR.base[k * 3 + 1], z = CUR.base[k * 3 + 2];
+                const x = CUR.base[k * 3], z = CUR.base[k * 3 + 2];
                 const g = Math.max(SEA_LEVEL, noise.get(x, z));
-                CUR.w[k] = y < g + 8 ? 0 : airAt(x, y, z, g, t, true).w;
+                // las capas que quedarían bajo tierra se pegan al relieve: ahí vive la ascendencia de ladera
+                let y = CUR.gy + CUR.layers[k % L];
+                if (y < g + 15) y = g + 15 + (k % L) * 28;
+                CUR.base[k * 3 + 1] = y;
+                CUR.w[k] = airAt(x, y, z, g, t, true).w;
             }
-            const pos = CUR.mesh.geometry.attributes.position.array, col = CUR.mesh.geometry.attributes.color.array;
+            const pos = CUR.mesh.geometry.attributes.position.array, col = CUR.mesh.geometry.attributes.color.array, al = CUR.mesh.geometry.attributes.aA.array;
             const R = (half + 0.5) * CUR.step, wx = pg.windDir.x, wz = pg.windDir.z;
             for (let k = 0; k < n; k++) {
                 const w = CUR.w[k], aw = Math.abs(w), o = k * 6;
                 const x = CUR.base[k * 3], y0 = CUR.base[k * 3 + 1], z = CUR.base[k * 3 + 2];
-                const fade = Math.max(0, 1 - Math.hypot(x - P.x, z - P.z) / R) * Math.max(0, 1 - Math.abs(y0 - P.y) / 260);
-                const I = aw < 0.35 ? 0 : Math.min(1, (aw - 0.35) / 3) * 0.6 * fade;
-                const len = 6 + Math.min(aw, 6) * 6;
+                const fade = Math.max(0, 1 - Math.hypot(x - P.x, z - P.z) / R) * Math.max(0, 1 - Math.abs(y0 - P.y) / 380);
+                const I = aw < 0.35 ? 0 : (0.45 + 0.5 * Math.min(1, (aw - 0.35) / 2.5)) * Math.min(1, fade * 1.6);
+                const len = 14 + Math.min(aw, 6) * 9;
                 // el trazo viaja en el sentido de la corriente (sube o baja) y se inclina un poco con el viento
                 const off = ((CUR.ph[k] + t * w * 4) % 40 + 40) % 40 - 20;
                 const yc = y0 + off, lean = len * 0.25;
                 pos[o] = x - wx * lean * 0.5; pos[o + 1] = yc - len / 2; pos[o + 2] = z - wz * lean * 0.5;
                 pos[o + 3] = x + wx * lean * 0.5; pos[o + 4] = yc + len / 2; pos[o + 5] = z + wz * lean * 0.5;
-                const [r, gg, b] = w > 0 ? [1.0, 0.22, 0.16] : [0.22, 0.48, 1.0];
-                // la punta (en el sentido del movimiento) brilla más: se lee la dirección sin flechas
+                const [r, gg, b] = w > 0 ? [0.86, 0.13, 0.11] : [0.11, 0.33, 0.92];
+                col[o] = col[o + 3] = r; col[o + 1] = col[o + 4] = gg; col[o + 2] = col[o + 5] = b;
+                // la punta (en el sentido del movimiento) es más opaca: se lee la dirección sin flechas
                 const tipUp = w > 0;
-                col[o] = r * I * (tipUp ? 0.25 : 1); col[o + 1] = gg * I * (tipUp ? 0.25 : 1); col[o + 2] = b * I * (tipUp ? 0.25 : 1);
-                col[o + 3] = r * I * (tipUp ? 1 : 0.25); col[o + 4] = gg * I * (tipUp ? 1 : 0.25); col[o + 5] = b * I * (tipUp ? 1 : 0.25);
+                al[k * 2] = I * (tipUp ? 0.2 : 1); al[k * 2 + 1] = I * (tipUp ? 1 : 0.2);
             }
             CUR.mesh.geometry.attributes.position.needsUpdate = true;
             CUR.mesh.geometry.attributes.color.needsUpdate = true;
+            CUR.mesh.geometry.attributes.aA.needsUpdate = true;
         }
 
         let frameCounter = 0;
