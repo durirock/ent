@@ -33,18 +33,23 @@
         .vario-negative { color: #f87171; }
         .wind-row { font-size: 0.7rem; color: #94a3b8; letter-spacing: 1px; margin-top: 8px; border-top: 1px solid rgba(255,255,255,0.12); padding-top: 8px; }
 
-        .top-buttons { position: absolute; top: 20px; right: 20px; display: flex; gap: 10px; z-index: 20; }
+        .top-buttons { position: absolute; top: 20px; right: 20px; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; max-width: 70vw; z-index: 20; }
 
+        /* Botones: vidrio oscuro, línea fina, rótulo en versalitas espaciadas. Rectángulo de esquinas
+           suaves (no círculos de juguete): calma visual, jerarquía por luz y no por color. */
         .icon-btn {
-            background: linear-gradient(135deg, #1e3a8a, #3b82f6); color: white;
-            width: 45px; height: 45px; border-radius: 50%; font-size: 1.5rem;
-            display: flex; justify-content: center; align-items: center; cursor: pointer;
-            border: 2px solid rgba(255,255,255,0.2); box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-            transition: all 0.2s;
+            height: 34px; min-width: 34px; padding: 0 14px; border-radius: 9px;
+            display: flex; align-items: center; justify-content: center; cursor: pointer; user-select: none;
+            font: 600 10.5px/1 'Segoe UI', system-ui, -apple-system, sans-serif; letter-spacing: .16em; text-transform: uppercase;
+            color: #e6ebf2; background: rgba(9, 13, 22, .56); border: 1px solid rgba(255, 255, 255, .15);
+            box-shadow: 0 6px 18px rgba(0, 0, 0, .28), inset 0 1px 0 rgba(255, 255, 255, .06);
+            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            transition: background .2s, border-color .2s, color .2s, transform .12s;
         }
-        .icon-btn:hover { transform: scale(1.1); }
-        .icon-btn:active { transform: scale(0.95); }
-        .active-btn { background: linear-gradient(135deg, #b45309, #f59e0b); }
+        .icon-btn:hover { background: rgba(18, 26, 42, .72); border-color: rgba(255, 255, 255, .3); }
+        .icon-btn:active { transform: scale(.97); }
+        .active-btn { color: #fde68a !important; border-color: rgba(251, 191, 36, .7) !important; background: rgba(36, 26, 8, .62) !important;
+            box-shadow: 0 0 0 1px rgba(251, 191, 36, .18), 0 6px 18px rgba(0, 0, 0, .28), inset 0 0 14px rgba(251, 191, 36, .1) !important; }
 
         #music-panel {
             position: absolute; top: 75px; right: 20px; background: rgba(10, 5, 0, 0.9);
@@ -107,16 +112,19 @@
         body.movil .joy-zone { display: block; position: absolute; bottom: 0; width: 42vw; height: 48vh; z-index: 14; touch-action: none; }
         body.movil #joy-left { left: 0; } body.movil #joy-right { right: 0; }
         .joy-base { position: absolute; left: 92px; top: calc(100% - 96px); width: 116px; height: 116px; transform: translate(-50%, -50%); border-radius: 50%;
-            background: rgba(255,255,255,.07); border: 2px solid rgba(255,255,255,.28); transition: opacity .5s; }
+            background: radial-gradient(circle, rgba(255,255,255,.05) 0%, rgba(255,255,255,0) 70%); border: 1px solid rgba(255,255,255,.22); transition: opacity .5s, border-color .2s; }
         #joy-right .joy-base { left: calc(100% - 92px); }
-        .joy-knob { position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; margin: -26px 0 0 -26px; border-radius: 50%;
-            background: rgba(255,255,255,.32); border: 2px solid rgba(255,255,255,.65); }
-        .joy-zone.on .joy-base { background: rgba(99,245,161,.12); border-color: rgba(99,245,161,.65); }
-        /* botones de acción: abajo al centro, entre las dos palancas */
+        .joy-knob { position: absolute; left: 50%; top: 50%; width: 42px; height: 42px; margin: -21px 0 0 -21px; border-radius: 50%;
+            background: rgba(230,235,242,.16); border: 1px solid rgba(255,255,255,.5); box-shadow: inset 0 1px 0 rgba(255,255,255,.15); }
+        .joy-zone.on .joy-base { border-color: rgba(251,191,36,.6); }
         body.movil #mob-actions { display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); z-index: 16; }
-        .mb { width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; font-size: 14px;
-            background: rgba(30,58,138,.55); border: 2px solid rgba(255,255,255,.3); user-select: none; -webkit-user-select: none; }
-        .mb.wide { width: 84px; border-radius: 19px; font-size: 10px; letter-spacing: 1px; background: rgba(180,83,9,.72); }
+        .mb { height: 34px; padding: 0 11px; border-radius: 9px; display: flex; align-items: center; justify-content: center; user-select: none; -webkit-user-select: none;
+            font: 600 9.5px/1 'Segoe UI', system-ui, sans-serif; letter-spacing: .14em; text-transform: uppercase; color: #e6ebf2;
+            background: rgba(9,13,22,.56); border: 1px solid rgba(255,255,255,.17); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+        .mb.wide { color: #fde68a; border-color: rgba(251,191,36,.5); }
+        .mb:active { background: rgba(28,38,60,.78); }
+        .mb.fly-only { display: none; }
+        body[data-mode=fly] .mb.fly-only { display: flex; }
         body[data-mode=fly] #mb-up, body[data-mode=fly] #mb-down, body[data-mode=fly] #mb-walk,
         body[data-mode=walk] #mb-down, body[data-mode=walk] #mb-walk { display: none; }
         body.movil #mob-inst { position: absolute; top: 34px; left: 50%; transform: translateX(-50%); z-index: 15; font: 600 11px monospace; color: #e0f2fe;
@@ -127,11 +135,17 @@
         body.movil .ui-overlay p:not(#mode-status) { display: none; }
         body.movil .ui-overlay #mode-status { font-size: 9px; margin-top: 0; }
         body.movil .top-buttons { top: 8px; right: 8px; gap: 6px; flex-wrap: wrap; max-width: 62vw; justify-content: flex-end; }
-        body.movil .icon-btn { width: 36px; height: 36px; font-size: 1rem !important; }
+        body.movil .icon-btn { height: 32px; padding: 0 11px; font-size: 9.5px; }
         body.movil #btn-menu, body.movil #btn-fs { display: flex; }
         body.movil .top-buttons:not(.open) .icon-btn:not(#btn-menu):not(#btn-paraglider):not(#btn-fs) { display: none; }
         body.movil #piki-hud { top: 46px; left: 8px; width: 138px; padding: 6px 8px; font-size: 9px; }
-        body.movil #piki-hud:not(.open) .ph-row:not(.ph-eco), body.movil #piki-hud:not(.open) #ph-kp-lbl { display: none; }
+        #piki-hud.min .ph-row, #piki-hud.min .ph-btn, #piki-hud.min #ph-kp-lbl { display: none !important; }
+        #piki-hud.min { width: auto; padding-bottom: 8px; }
+        #piki-hud.min .ph-head { margin-bottom: 0; }
+        .ph-head { cursor: pointer; gap: 8px; }
+        .ph-tog { margin-left: auto; font-size: 9px; font-weight: 600; letter-spacing: .14em; color: #94a3b8; text-transform: uppercase; }
+        .wneedle { display: inline-block; width: 2px; height: 13px; margin-left: 5px; vertical-align: middle; border-radius: 1px;
+            background: linear-gradient(to top, rgba(226,232,240,.15), #e2e8f0); }
         body.movil #view-chip { bottom: auto; top: 6px; padding: 3px 6px; font-size: 9px; gap: 2px; }
         body.movil #view-chip span { padding: 2px 6px; }
         body.movil #view-bar { display: none; }
@@ -209,16 +223,16 @@
     </div>
 
     <div class="top-buttons">
-        <div class="icon-btn" id="btn-menu" title="Menú">☰</div>
-        <div class="icon-btn" id="btn-fs" title="Pantalla completa">⛶</div>
-        <div class="icon-btn" id="btn-view" title="Cambiar vista: ave · 3ª · 1ª persona (V / rueda)" style="font-size:1.25rem">◎</div>
-        <div class="icon-btn" id="btn-editor" title="Editor de terrenos (E)" style="font-size:1.25rem">✎</div>
-        <div class="icon-btn" id="btn-map" title="Vista de águila sobre el mapa (5)" style="font-size:1.25rem">▦</div>
-        <div class="icon-btn" id="btn-funk" title="Groove funk: encender / apagar (N)" style="font-size:1.1rem">▶</div>
-        <div class="icon-btn" id="btn-music" title="Núcleo funk">🎵</div>
-        <div class="icon-btn" id="btn-radio" title="Radio Tagua Tagua">📻</div>
-        <div class="icon-btn" id="btn-settings" title="Configuración visual">⚙️</div>
-        <div class="icon-btn" id="btn-paraglider" title="Volar parapente">🪂</div>
+        <div class="icon-btn" id="btn-menu" title="Más opciones">Menú</div>
+        <div class="icon-btn" id="btn-fs" title="Pantalla completa">Pantalla</div>
+        <div class="icon-btn" id="btn-view" title="Cambiar vista: ave, 3ª o 1ª persona (V o rueda)">Vista</div>
+        <div class="icon-btn" id="btn-editor" title="Editor de terrenos (E)">Editor</div>
+        <div class="icon-btn" id="btn-map" title="Vista de águila sobre el mapa (5)">Águila</div>
+        <div class="icon-btn" id="btn-funk" title="Groove funk: encender o apagar (N)">Groove</div>
+        <div class="icon-btn" id="btn-music" title="Núcleo funk">Música</div>
+        <div class="icon-btn" id="btn-radio" title="Radio Tagua Tagua">Radio</div>
+        <div class="icon-btn" id="btn-settings" title="Ajustes">Ajustes</div>
+        <div class="icon-btn" id="btn-paraglider" title="Parapente (T)">Volar</div>
     </div>
 
     <div id="settings-panel">
@@ -260,6 +274,9 @@
                 <option value="mixto">Mixto: planeta procedural con dibujos intercalados</option>
                 <option value="procedural">Procedural: el planeta original, sin dibujos</option>
             </select>
+        </div>
+        <div class="control-group">
+            <label class="te-chk" style="font-size:12px;color:#e2e8f0"><input type="checkbox" id="cfg-corrientes" checked> Ver corrientes de aire (rojo sube, azul baja)</label>
         </div>
         <div class="control-group">
             <label>Curvas de nivel: <span id="val-contour">85</span>%</label>
@@ -324,14 +341,14 @@
         <p><strong>Click + arrastrar:</strong> mirar</p>
         <p><strong>WASD:</strong> moverse</p>
         <p><strong>Z / X:</strong> subir / bajar</p>
-        <p><strong>Rueda / V:</strong> ave ⇄ 3ª ⇄ 1ª persona</p>
+        <p><strong>Rueda / V:</strong> ave, 3ª o 1ª persona</p>
                     <p><strong>5:</strong> águila · <strong>M:</strong> mapa · <strong>E:</strong> editor</p>
                     <p><strong>Vista de ave:</strong> arrastra o WASD para recorrer · <strong>H:</strong> acariciar</p>
                     <p><strong>En parapente:</strong> arrastrar gira la cámara en torno a Pikitipu · <strong>N:</strong> groove on/off</p>
     </div>
 
     <div id="terrain-editor">
-        <h2>Editor de terrenos <span id="te-close" title="cerrar (E)">×</span></h2>
+        <h2>Editor de terrenos <span id="te-close" title="cerrar (E)" style="font-size:10px;letter-spacing:.14em">CERRAR</span></h2>
         <select id="te-map" class="te-select"></select>
         <canvas id="te-preview" width="260" height="260"></canvas>
         <label class="te-chk"><input type="checkbox" id="te-show-ink" checked> mostrar trazo original</label>
@@ -362,14 +379,15 @@
     <div id="joy-left" class="joy-zone"><div class="joy-base"><div class="joy-knob"></div></div></div>
     <div id="joy-right" class="joy-zone"><div class="joy-base"><div class="joy-knob"></div></div></div>
     <div id="mob-actions">
-        <div class="mb" id="mb-up">▲</div><div class="mb" id="mb-down">▼</div>
-        <div class="mb wide" id="mb-fly">VOLAR</div>
-        <div class="mb wide" id="mb-walk">A PIE</div>
-        <div class="mb" id="mb-view">◎</div><div class="mb" id="mb-pet">♥</div>
+        <div class="mb" id="mb-up">Subir</div><div class="mb" id="mb-down">Bajar</div>
+        <div class="mb fly-only" id="mb-ears">Orejas</div><div class="mb fly-only" id="mb-spiral">Espiral</div>
+        <div class="mb wide" id="mb-fly">Volar</div>
+        <div class="mb wide" id="mb-walk">A pie</div>
+        <div class="mb" id="mb-view">Vista</div><div class="mb" id="mb-pet">Cariño</div>
     </div>
 
     <div id="piki-hud">
-        <div class="ph-head"><span id="ph-name">Pikitipu</span><span id="ph-kp" class="ph-dot" title="Killer Pendiente"></span></div>
+        <div class="ph-head" title="Minimizar o abrir"><span id="ph-name">Pikitipu</span><span id="ph-kp" class="ph-dot" title="Killer Pendiente"></span><span class="ph-tog" id="ph-tog">ocultar</span></div>
         <div class="ph-row"><span>Felicidad</span><i><b id="phb-h" style="background:#ff8da1"></b></i></div>
         <div class="ph-row"><span>Energía</span><i><b id="phb-e" style="background:#63f5a1"></b></i></div>
         <div class="ph-row"><span>Vínculo</span><i><b id="phb-bond" style="background:#5ce6ff"></b></i></div>
@@ -1895,7 +1913,7 @@
                 pg.velocity.set(0, 0, 0);
                 pg.pitchAngle = 0; pg.rollAngle = 0; pg.targetRoll = 0; pg.targetPitch = 0;
                 cameraRotX = 0;
-                Object.assign(PGX, { V: launching ? 4 : 10.5, bank: 0, brake: 0, bar: 0, stall: 0, stallT: 0, pitchOsc: 0, pitchVel: 0, vz: 0, launchT: launching ? 4.0 : 0 });
+                Object.assign(PGX, { ears: 0, spiral: 0, V: launching ? 4 : 10.5, bank: 0, brake: 0, bar: 0, stall: 0, stallT: 0, pitchOsc: 0, pitchVel: 0, vz: 0, launchT: launching ? 4.0 : 0 });
                 if (launching) { pkToast && pkToast('Despegue', 'Corre ladera abajo… la vela se infla.', '#63f5a1'); document.getElementById('launch-chip').style.display = 'none'; }
                 else {
                     // desde la exploración libre: se abre la vela en el aire
@@ -1969,6 +1987,13 @@
             if (keys['KeyW']) barIn = 1;
             if (keys['KeyS']) brakeIn = 1;
             if (JOY.la) { rollIn = -JOY.lx; if (JOY.ly < 0) barIn = Math.max(barIn, -JOY.ly); else brakeIn = Math.max(brakeIn, JOY.ly); }
+            // DESCENSO RÁPIDO, como en un ala real:
+            //  · OREJAS (Q): se pliegan las puntas → −3,5 m/s, casi la misma velocidad, giro más lento
+            //  · BARRENA ESPIRAL (X, con A/D para el lado): alabeo extremo → −10 a −14 m/s; se sale soltando, de a poco
+            const earsIn = keys['KeyQ'] || JOY.ears, spiralIn = keys['KeyX'] || JOY.spiral;
+            PGX.ears += ((earsIn ? 1 : 0) - PGX.ears) * Math.min(1, dt * 1.3);
+            if (spiralIn && Math.abs(rollIn) > 0.2) PGX.spDir = Math.sign(rollIn);
+            PGX.spiral += ((spiralIn && !PGX.stall ? 1 : 0) - PGX.spiral) * Math.min(1, dt * (spiralIn ? 0.45 : 0.7));
 
             const P = camera.position, t = performance.now() / 1000;
             airUpdate(dt, P);
@@ -1978,12 +2003,13 @@
             // --- ala ---
             PGX.brake += (THREE.MathUtils.clamp(brakeIn, 0, 1) - PGX.brake) * Math.min(1, dt * 2.5);
             PGX.bar   += (THREE.MathUtils.clamp(barIn, 0, 1) * (1 - PGX.brake) - PGX.bar) * Math.min(1, dt * 2.0);
-            const bankT = THREE.MathUtils.clamp(rollIn, -1, 1) * 0.72 * (1 - PGX.stall);
+            let bankT = THREE.MathUtils.clamp(rollIn, -1, 1) * 0.72 * (1 - PGX.stall) * (1 - 0.45 * PGX.ears);
+            bankT = THREE.MathUtils.lerp(bankT, (PGX.spDir || 1) * 1.22, PGX.spiral);
             PGX.bank += (bankT - PGX.bank) * Math.min(1, dt * 1.5);
             if (PGX.brake > 0.93) PGX.stallT += dt; else PGX.stallT = Math.max(0, PGX.stallT - dt * 2);
             if (PGX.stallT > 1.3 && !PGX.stall) { PGX.stall = 1; pkMood && pkMood('¡Pérdida! Suelta los frenos'); }
             if (PGX.stall && PGX.brake < 0.45) { PGX.stall = Math.max(0, PGX.stall - dt * 0.7); if (PGX.stall === 0) PGX.pitchVel -= 0.9; }   // recuperación: abatida
-            const Vt = PGX.stall ? 4 : 10.5 + 3.6 * PGX.bar - 3.6 * PGX.brake;
+            const Vt = PGX.stall ? 4 : 10.5 + 3.6 * PGX.bar - 3.6 * PGX.brake - 0.8 * PGX.ears + 5.5 * PGX.spiral;
             const dV = Vt - PGX.V;
             PGX.V += dV * Math.min(1, dt * 1.1);
             // péndulo: el piloto bajo la vela se balancea al cambiar de velocidad
@@ -1993,9 +2019,11 @@
             const turb = AIR.turb;
             const tb = turb * (Math.sin(t * 7.3) * 0.6 + Math.sin(t * 13.1 + 1.7) * 0.4);
             const bank = PGX.bank + tb * 0.10 + (PGX.stall ? Math.sin(t * 3.1) * 0.35 * PGX.stall : 0);
-            const load = 1 / Math.max(0.35, Math.cos(bank));
+            const load = 1 / Math.max(0.35, Math.cos(Math.min(Math.abs(bank), 0.8)));
             const sinkPolar = 1.1 + 0.055 * Math.pow(PGX.V - 9.5, 2);
-            const sink = PGX.stall ? THREE.MathUtils.lerp(sinkPolar, 5.8, PGX.stall) : sinkPolar * Math.pow(load, 1.5);
+            let sink = PGX.stall ? THREE.MathUtils.lerp(sinkPolar, 5.8, PGX.stall) : sinkPolar * Math.pow(load, 1.5);
+            sink += 2.4 * PGX.ears;
+            sink = THREE.MathUtils.lerp(sink, 3 + 11 * PGX.spiral, smoothstep(0.15, 0.9, PGX.spiral));
             const omega = 9.81 * Math.tan(bank) / Math.max(5, PGX.V);
             cameraRotY += omega * dt;
 
@@ -2009,7 +2037,7 @@
 
             // --- cámara del piloto ---
             pg.rollAngle = bank;                                      // lo usan el avatar y la vela
-            camera.rotation.z = bank * 0.85 + tb * 0.04;
+            camera.rotation.z = THREE.MathUtils.clamp(bank * 0.85, -0.75, 0.75) + tb * 0.04;
             const totalPitch = THREE.MathUtils.clamp(cameraRotX - PGX.pitchOsc * 0.9 + tb * 0.03, -Math.PI / 2, Math.PI / 2);
             camera.rotation.x = THREE.MathUtils.lerp(camera.rotation.x, totalPitch, dt * 6);
             camera.rotation.y = cameraRotY;
@@ -2040,9 +2068,9 @@
             const varioEl = document.getElementById('inst-var');
             varioEl.innerText = (PGX.vz > 0 ? "+" : "") + PGX.vz.toFixed(1);
             varioEl.className = "instrument-value " + (PGX.vz > 0.3 ? 'vario-positive' : (PGX.vz < -1.8 ? 'vario-negative' : ''));
-            const state = PGX.stall ? 'PÉRDIDA' : A.label;
+            const state = PGX.stall ? 'PÉRDIDA' : PGX.spiral > 0.3 ? 'BARRENA ESPIRAL' : PGX.ears > 0.3 ? 'OREJAS' : A.label;
             document.getElementById('inst-wind').innerHTML =
-                `AGL ${Math.max(0, agl).toFixed(0)} m · aire ${(PGX.V * 3.6).toFixed(0)} km/h · viento ${U.toFixed(1)} m/s <span id="inst-warrow" style="display:inline-block;transform:rotate(${windArrowDeg()}deg)">↑</span><br>${state}`;
+                `AGL ${Math.max(0, agl).toFixed(0)} m · aire ${(PGX.V * 3.6).toFixed(0)} km/h · viento ${U.toFixed(1)} m/s <span class="wneedle" style="transform:rotate(${windArrowDeg()}deg)"></span><br>${state}`;
             const mi = document.getElementById('mob-inst');
             if (mi) mi.textContent = `${gsKmh.toFixed(0)} km/h · ${P.y.toFixed(0)} m · ${PGX.vz > 0 ? '+' : ''}${PGX.vz.toFixed(1)} m/s · ${state}`;
 
@@ -2699,7 +2727,7 @@
                     <input type="number" data-k="${kind}" data-i="${i}" data-f="h" value="${arr[i][0]}" step="5">
                     <span>${kind === 'sea' ? 'm bajo el mar' : 'm'}</span>
                     <input type="color" data-k="${kind}" data-i="${i}" data-f="c" value="${arr[i][1]}">
-                    <button data-k="${kind}" data-i="${i}" data-f="x" title="quitar">×</button>
+                    <button data-k="${kind}" data-i="${i}" data-f="x" title="quitar" style="font-size:9px;letter-spacing:.1em">QUITAR</button>
                 </div>`;
             document.getElementById('te-stops').innerHTML = c.land.map((_, i) => row(c.land, i, 'land')).join('');
             document.getElementById('te-sea-stops').innerHTML = c.sea.map((_, i) => row(c.sea, i, 'sea')).join('');
@@ -2965,6 +2993,7 @@
 
             // El avatar (Pikitipu en su vela, o Hakuryū) ES el marcador; ecosistema y KP, cuadro a cuadro
             kpEcoFrame(dt, P, yaw, adapt, camH, b, eg);
+            curFrame(dt, P, adapt);
 
             // desde el cielo, más allá de lo cargado hay mar abierto, no cielo
             if (adapt > 0.001 && scene.background) {
@@ -3081,7 +3110,7 @@
             // norte, escala y leyenda
             g.textAlign = 'left';
             g.fillStyle = 'rgba(0,0,0,0.6)'; g.fillRect(size - 44, 10, 34, 40);
-            g.fillStyle = '#fff'; g.font = '700 14px monospace'; g.fillText('N', size - 32, 26); g.fillText('↑', size - 32, 44);
+            g.fillStyle = '#fff'; g.font = '700 14px monospace'; g.fillText('N', size - 32, 26); g.fillRect(size - 28, 32, 2, 14);
             const km = 1000 / span * size, sb = km >= 60 ? km : km * 5, sl = km >= 60 ? '1 km' : '5 km';
             g.fillStyle = 'rgba(0,0,0,0.6)'; g.fillRect(10, size - 40, sb + 20, 30);
             g.fillStyle = '#fff'; g.fillRect(20, size - 22, sb, 4); g.font = '11px monospace'; g.fillText(sl, 20, size - 26);
@@ -3109,6 +3138,15 @@
             });
             mobileInit();
             setModeUI('free');
+            curInit();
+            const cc = document.getElementById('cfg-corrientes'); cc.checked = CUR.on; curSet(CUR.on);
+            cc.addEventListener('change', e => curSet(e.target.checked));
+            // panel de Pikitipu: minimizable (se recuerda); en celular parte minimizado
+            const ph = document.getElementById('piki-hud');
+            let phMin = IS_MOBILE; try { const v = localStorage.getItem('aerocosmos.pikihud'); if (v) phMin = v === 'min'; } catch (_) {}
+            const phSet = m => { ph.classList.toggle('min', m); document.getElementById('ph-tog').textContent = m ? 'ver' : 'ocultar'; try { localStorage.setItem('aerocosmos.pikihud', m ? 'min' : 'open'); } catch (_) {} };
+            phSet(phMin);
+            ph.querySelector('.ph-head').addEventListener('click', e => { e.stopPropagation(); phSet(!ph.classList.contains('min')); });
             VIEW.focusX = camera.position.x; VIEW.focusZ = camera.position.z;
 
             // Rueda: subir = acercarse (hacia 1ª persona) · bajar = alejarse (hacia vista de ave)
@@ -3543,7 +3581,7 @@ void main(){
                 // OFRENDA: al azar árbol / nube / bandada / cardumen; la categoría decide el ser, la presión su tamaño
                 const cat = /^[ABC]$/.test(m.priority) ? m.priority : 'B';
                 const of = ofSpawn(cat, days);
-                const ofTxt = of ? `Brotó ${OF_NAMES[of.k][cat]} (${cat})${days ? ` · ${days} días de presión → ×${of.p.toFixed(1)}` : ''}` : '';
+                const ofTxt = of ? `Brotó ${OF_NAMES[of.k][cat]} (${cat})${days ? ` · ${days} días de presión, tamaño ${of.p.toFixed(1)} veces` : ''}` : '';
                 pkToast('Pendiente lograda', `${m.task_name || ''}${pv ? ' · +' + pv + ' Pv' : ''}${ofTxt ? '<br>' + ofTxt : ''}`, PK.lastUserColor);
                 setTimeout(leerKPEgg, 2500);
             },
@@ -4195,7 +4233,7 @@ void main(){
         function funkToggle() { isAudioPlaying ? funkStop() : funkStart(); }
         function funkUI() {
             const b = document.getElementById('btn-funk'), c = document.getElementById('btn-start-core');
-            if (b) { b.classList.toggle('active-btn', isAudioPlaying); b.textContent = isAudioPlaying ? '■' : '▶'; b.title = isAudioPlaying ? 'Apagar groove funk (N)' : 'Encender groove funk (N)'; }
+            if (b) { b.classList.toggle('active-btn', isAudioPlaying); b.title = isAudioPlaying ? 'Apagar groove funk (N)' : 'Encender groove funk (N)'; }
             if (c) c.textContent = isAudioPlaying ? 'Detener groove' : 'Iniciar groove';
             const mc = document.getElementById('music-controls'); if (mc && isAudioPlaying) mc.style.display = 'block';
         }
@@ -4216,7 +4254,7 @@ void main(){
         // =====================================================================
         // AIRE VIVO — viento, ladera, rotor, térmicas con ciclo de vida
         // =====================================================================
-        const PGX = { V: 10.5, bank: 0, brake: 0, bar: 0, stall: 0, stallT: 0, pitchOsc: 0, pitchVel: 0, vz: 0, launchT: 0 };
+        const PGX = { ears: 0, spiral: 0, spDir: 1, V: 10.5, bank: 0, brake: 0, bar: 0, stall: 0, stallT: 0, pitchOsc: 0, pitchVel: 0, vz: 0, launchT: 0 };
         const AIR = { thermals: [], gust: 1, turb: 0, yaw0: Math.atan2(pg.windDir.z, pg.windDir.x), cuMesh: null, t: 0, seedT: 0 };
         const THERMAL_MAX = 16;
 
@@ -4273,7 +4311,7 @@ void main(){
         }
         const _tc = { x: 0, z: 0 };
         // velocidad vertical del aire en un punto (m/s) + etiqueta para el piloto
-        function airAt(x, y, z, groundY, t) {
+        function airAt(x, y, z, groundY, t, probe) {
             const U = windAt(y - groundY), wd = pg.windDir, sun = Math.max(0, sunElevation);
             let w = 0, turb = 0.15, label = 'aire en calma', best = 0;
             // 1) LADERA: el viento golpea la cara de la montaña y sube. Se busca la cara a sotavento tuyo
@@ -4287,7 +4325,7 @@ void main(){
                 const v = U * (grade / Math.sqrt(1 + grade * grade)) * Math.exp(-Math.pow(Math.max(0, above) / 170, 2)) * (1 - d / 240);
                 if (v > ridge) ridge = v;
             }
-            if (ridge > 0.2) { w += ridge * 1.15; label = `ladera ↑ +${ridge.toFixed(1)}`; best = ridge; }
+            if (ridge > 0.2) { w += ridge * 1.15; label = `ladera +${ridge.toFixed(1)}`; best = ridge; }
             // 2) ROTOR: detrás de una cresta (a sotavento) el aire cae y se enrosca
             let crest = -1e9;
             for (const d of [35, 80, 140, 220]) crest = Math.max(crest, noise.get(x - wd.x * d, z - wd.z * d));
@@ -4295,7 +4333,7 @@ void main(){
             if (ridgeH > 35) {
                 const below = crest - y;                                  // >0: estás bajo la cresta, en su sombra
                 const lee = smoothstep(-50, 60, below) * Math.min(1, ridgeH / 120);
-                if (lee > 0.05) { w -= U * 0.6 * lee; turb += U * 0.22 * lee; if (lee > 0.3 && ridge < 0.5) label = 'rotor de sotavento ↓↓'; }
+                if (lee > 0.05) { w -= U * 0.6 * lee; turb += U * 0.22 * lee; if (lee > 0.3 && ridge < 0.5) label = 'rotor de sotavento'; }
             }
             // 3) TÉRMICAS: núcleo que sube, anillo que baja alrededor, más fuertes con sol alto
             for (const th of AIR.thermals) {
@@ -4306,14 +4344,15 @@ void main(){
                 const vf = smoothstep(0, 70, y - th.g) * (1 - smoothstep(th.top - 160, th.top, y));
                 const wt = th.w0 * thermalEnv(th) * (0.5 + sun) * thermalMultiplier * vf * (core > 0 ? core : core * 2.6);
                 w += wt; turb += Math.abs(wt) * 0.12 * (q > 0.6 && q < 1.6 ? 2 : 1);
-                if (wt > best && wt > 0.3) { best = wt; label = `térmica ↑ +${wt.toFixed(1)}`; }
-                else if (wt < -0.4 && best < 0.3) label = 'borde de térmica ↓';
+                if (wt > best && wt > 0.3) { best = wt; label = `térmica +${wt.toFixed(1)}`; }
+                else if (wt < -0.4 && best < 0.3) label = 'borde de térmica';
             }
             // 4) DESCENDENCIA de fondo (el aire que sube vuelve a bajar en algún lado) + burbujas ambientales
             w += -0.35 * sun + ambientAirField(x, z, dayTime) * 0.5 * ambientWindMultiplier;
             // 5) turbulencia mecánica cerca del suelo con viento
             turb += U * 0.05 * Math.exp(-Math.max(0, y - groundY) / 60);
-            if (label === 'aire en calma' && w < -0.8) label = 'descendencia ↓';
+            if (label === 'aire en calma' && w < -0.8) label = 'descendencia';
+            if (probe) return { w: THREE.MathUtils.clamp(w, -8, 9), label };
             AIR.turb += (Math.min(2.5, turb) - AIR.turb) * 0.05;
             return { w: THREE.MathUtils.clamp(w + AIR.turb * Math.sin(t * 5.3 + x * 0.01) * 0.35, -8, 9), label };
         }
@@ -4469,19 +4508,22 @@ void main(){
             free: `<p><strong>Arrastrar:</strong> mirar · <strong>WASD:</strong> moverse · <strong>Z / X:</strong> subir / bajar</p>
                    <p><strong>T:</strong> parapente · <strong>C:</strong> bajar a caminar</p>`,
             fly:  `<p><strong>A / D:</strong> virar (alabeo) · <strong>W:</strong> acelerador · <strong>S:</strong> frenos</p>
+                   <p><strong>Q:</strong> orejas (bajar rápido) · <strong>X + A/D:</strong> barrena espiral (bajar muy rápido)</p>
                    <p><strong>Arrastrar:</strong> cámara en torno a Pikitipu · <strong>Shift + arrastrar:</strong> pilotar</p>
                    <p><strong>B:</strong> vario sonoro · <strong>T:</strong> soltar la vela</p>
                    <p class="opacity-70">Gira dentro de las térmicas (bajo los cúmulos) y vuela delante de las laderas de cara al viento. Evita el sotavento.</p>`,
             walk: `<p><strong>WASD:</strong> caminar · <strong>Shift:</strong> correr · <strong>Espacio:</strong> saltar · <strong>Arrastrar:</strong> mirar</p>
                    <p><strong>T:</strong> despegar desde una ladera, de cara al viento</p>`
         };
-        const COMMON_HINT = `<p><strong>Rueda / V:</strong> ave ⇄ 3ª ⇄ 1ª persona · <strong>5:</strong> águila · <strong>M:</strong> mapa · <strong>E:</strong> editor</p>
+        const COMMON_HINT = `<p><strong>Rueda / V:</strong> ave, 3ª o 1ª persona · <strong>5:</strong> águila · <strong>M:</strong> mapa · <strong>E:</strong> editor</p>
                    <p><strong>H:</strong> acariciar · <strong>N:</strong> groove on/off</p>`;
         function setModeUI(mode) {
             document.getElementById('controls').innerHTML = MODE_HINTS[mode] + COMMON_HINT;
             document.getElementById('mode-status').innerText = { free: 'Modo: exploración libre', fly: 'Modo: piloto de parapente', walk: 'Modo: a pie' }[mode];
             document.getElementById('launch-chip').style.display = mode === 'walk' ? 'block' : 'none';
             document.body.dataset.mode = mode;
+            const fb = document.getElementById('mb-fly'); if (fb) fb.textContent = { free: 'Volar', fly: 'Soltar', walk: 'Despegar' }[mode];
+            const ub = document.getElementById('mb-up'); if (ub) ub.textContent = mode === 'walk' ? 'Saltar' : 'Subir';
             const mi = document.getElementById('mob-inst'); if (mi) mi.style.display = mode === 'fly' ? 'block' : 'none';
         }
 
@@ -4489,7 +4531,7 @@ void main(){
         // CELULAR — joypads, gestos, interfaz mínima que se oculta sola
         // =====================================================================
         const IS_MOBILE = (window.matchMedia && matchMedia('(pointer: coarse)').matches) || ('ontouchstart' in window && Math.min(screen.width, screen.height) < 900);
-        const JOY = { lx: 0, ly: 0, rx: 0, ry: 0, la: false, ra: false, jump: false };
+        const JOY = { lx: 0, ly: 0, rx: 0, ry: 0, la: false, ra: false, jump: false, ears: false, spiral: false };
         function joyBind(zoneId, side) {
             const zone = document.getElementById(zoneId), knob = zone.querySelector('.joy-knob'), base = zone.querySelector('.joy-base');
             let id = null, cx = 0, cy = 0; const R = 52;
@@ -4586,13 +4628,15 @@ void main(){
             holdBtn('mb-walk', () => modeKeyC(), null);
             holdBtn('mb-view', () => { VIEW.eagle = false; VIEW.target = VIEW.target < 0.5 ? 1 : VIEW.target < 1.5 ? 2 : 0; }, null);
             holdBtn('mb-pet', () => { PK.petting = true; }, () => { PK.petting = false; });
+            holdBtn('mb-ears', () => { JOY.ears = true; }, () => { JOY.ears = false; });
+            holdBtn('mb-spiral', () => { JOY.spiral = true; }, () => { JOY.spiral = false; });
             const menu = document.getElementById('btn-menu');
             menu.addEventListener('click', e => { e.stopPropagation(); document.querySelector('.top-buttons').classList.toggle('open'); uiWake(); });
             document.getElementById('btn-fs').addEventListener('click', e => {
                 e.stopPropagation(); const d = document.documentElement;
                 if (!document.fullscreenElement) (d.requestFullscreen || d.webkitRequestFullscreen || (() => {})).call(d); else document.exitFullscreen && document.exitFullscreen();
             });
-            document.getElementById('piki-hud').addEventListener('click', e => { e.currentTarget.classList.toggle('open'); });
+
             ['touchstart', 'pointerdown'].forEach(ev => window.addEventListener(ev, uiWake, { passive: true }));
             uiWake();
         }
@@ -4604,6 +4648,81 @@ void main(){
         // C: bajar a caminar (desde exploración libre)
         function modeKeyC() {
             if (!isParagliding && !isWalking) { enterWalk(); pkToast && pkToast('A pie', 'Para volar: sube a un cerro, mira hacia la pendiente y presiona T.', '#63f5a1'); }
+        }
+
+        // =====================================================================
+        // CORRIENTES VISIBLES — trazos verticales finos: rojo sube, azul baja
+        // ---------------------------------------------------------------------
+        // Como en las cartas de vuelo a vela: una rejilla de trazos alrededor del piloto
+        // muestrea el mismo aire que siente el ala (ladera, rotor, térmicas, descendencias).
+        // Cada trazo se desliza en la dirección de la corriente; su largo y brillo dicen
+        // su fuerza. Se recalcula de a poco (unos cientos de puntos por cuadro).
+        // =====================================================================
+        const CUR = {
+            on: (() => { try { return localStorage.getItem('aerocosmos.corrientes') !== 'off'; } catch (_) { return true; } })(),
+            N: IS_MOBILE ? 11 : 15, step: 70, layers: IS_MOBILE ? [-90, 0, 90, 180] : [-140, -60, 20, 100, 180],
+            mesh: null, w: null, base: null, ph: null, cursor: 0, gx: 1e9, gz: 1e9, gy: 1e9
+        };
+        function curInit() {
+            const n = CUR.N * CUR.N * CUR.layers.length;
+            const g = new THREE.BufferGeometry();
+            g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 6), 3));
+            g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(n * 6), 3));
+            const m = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false });
+            m.onBeforeCompile = worldCurvatureShader.onBeforeCompile;
+            CUR.mesh = new THREE.LineSegments(g, m); CUR.mesh.frustumCulled = false; scene.add(CUR.mesh);
+            CUR.w = new Float32Array(n); CUR.base = new Float32Array(n * 3); CUR.ph = new Float32Array(n);
+            for (let i = 0; i < n; i++) CUR.ph[i] = Math.random() * 40;
+        }
+        function curSet(on) {
+            CUR.on = on; try { localStorage.setItem('aerocosmos.corrientes', on ? 'on' : 'off'); } catch (_) {}
+            if (CUR.mesh) CUR.mesh.visible = on;
+        }
+        function curFrame(dt, P, adapt) {
+            if (!CUR.mesh) return;
+            CUR.mesh.visible = CUR.on && adapt < 0.5;
+            if (!CUR.mesh.visible) return;
+            const N = CUR.N, L = CUR.layers.length, n = N * N * L, half = (N - 1) / 2, t = performance.now() / 1000;
+            const gx = Math.round(P.x / CUR.step) * CUR.step, gz = Math.round(P.z / CUR.step) * CUR.step, gy = Math.round(P.y / 40) * 40;
+            if (gx !== CUR.gx || gz !== CUR.gz || gy !== CUR.gy) {
+                CUR.gx = gx; CUR.gz = gz; CUR.gy = gy;
+                for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) for (let l = 0; l < L; l++) {
+                    const k = (i * N + j) * L + l, hx = Math.sin((gx / CUR.step + i) * 12.9898 + (gz / CUR.step + j) * 78.233) * 43758.5;
+                    const jit = (hx - Math.floor(hx)) - 0.5;
+                    CUR.base[k * 3] = gx + (i - half) * CUR.step + jit * CUR.step * 0.7;
+                    CUR.base[k * 3 + 1] = gy + CUR.layers[l];
+                    CUR.base[k * 3 + 2] = gz + (j - half) * CUR.step - jit * CUR.step * 0.5;
+                }
+            }
+            // muestreo progresivo del aire
+            const per = Math.ceil(n / (IS_MOBILE ? 10 : 6));
+            for (let s = 0; s < per; s++) {
+                const k = CUR.cursor; CUR.cursor = (CUR.cursor + 1) % n;
+                const x = CUR.base[k * 3], y = CUR.base[k * 3 + 1], z = CUR.base[k * 3 + 2];
+                const g = Math.max(SEA_LEVEL, noise.get(x, z));
+                CUR.w[k] = y < g + 8 ? 0 : airAt(x, y, z, g, t, true).w;
+            }
+            const pos = CUR.mesh.geometry.attributes.position.array, col = CUR.mesh.geometry.attributes.color.array;
+            const R = (half + 0.5) * CUR.step, wx = pg.windDir.x, wz = pg.windDir.z;
+            for (let k = 0; k < n; k++) {
+                const w = CUR.w[k], aw = Math.abs(w), o = k * 6;
+                const x = CUR.base[k * 3], y0 = CUR.base[k * 3 + 1], z = CUR.base[k * 3 + 2];
+                const fade = Math.max(0, 1 - Math.hypot(x - P.x, z - P.z) / R) * Math.max(0, 1 - Math.abs(y0 - P.y) / 260);
+                const I = aw < 0.35 ? 0 : Math.min(1, (aw - 0.35) / 3) * 0.6 * fade;
+                const len = 6 + Math.min(aw, 6) * 6;
+                // el trazo viaja en el sentido de la corriente (sube o baja) y se inclina un poco con el viento
+                const off = ((CUR.ph[k] + t * w * 4) % 40 + 40) % 40 - 20;
+                const yc = y0 + off, lean = len * 0.25;
+                pos[o] = x - wx * lean * 0.5; pos[o + 1] = yc - len / 2; pos[o + 2] = z - wz * lean * 0.5;
+                pos[o + 3] = x + wx * lean * 0.5; pos[o + 4] = yc + len / 2; pos[o + 5] = z + wz * lean * 0.5;
+                const [r, gg, b] = w > 0 ? [1.0, 0.22, 0.16] : [0.22, 0.48, 1.0];
+                // la punta (en el sentido del movimiento) brilla más: se lee la dirección sin flechas
+                const tipUp = w > 0;
+                col[o] = r * I * (tipUp ? 0.25 : 1); col[o + 1] = gg * I * (tipUp ? 0.25 : 1); col[o + 2] = b * I * (tipUp ? 0.25 : 1);
+                col[o + 3] = r * I * (tipUp ? 1 : 0.25); col[o + 4] = gg * I * (tipUp ? 1 : 0.25); col[o + 5] = b * I * (tipUp ? 1 : 0.25);
+            }
+            CUR.mesh.geometry.attributes.position.needsUpdate = true;
+            CUR.mesh.geometry.attributes.color.needsUpdate = true;
         }
 
         let frameCounter = 0;
