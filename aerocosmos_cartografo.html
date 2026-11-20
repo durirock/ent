@@ -1213,8 +1213,8 @@
 
             window.addEventListener('keydown', e => keys[e.code] = true);
             window.addEventListener('keyup', e => keys[e.code] = false);
-            window.addEventListener('mousedown', e => { isMouseDown = true; lastMousePos = { x: e.clientX, y: e.clientY }; });
-            window.addEventListener('mouseup', () => { isMouseDown = false; });
+            window.addEventListener('mousedown', e => { isMouseDown = true; lastMousePos = { x: e.clientX, y: e.clientY }; if (e.button === 0) petPointerDown(e.target, e.clientX, e.clientY); });
+            window.addEventListener('mouseup', () => { isMouseDown = false; petPointerUp(); });
             window.addEventListener('mousemove', onMouseMove);
             window.addEventListener('resize', onResize);
 
@@ -1931,6 +1931,7 @@
         }
 
         function onMouseMove(e) {
+            if (PET.ptr) { lastMousePos = { x: e.clientX, y: e.clientY }; return; }   // acariciando: la cámara se queda quieta
             if (!isMouseDown || MAP.open) return;
             // ÁGUILA: arrastrar gira e inclina la cámara alrededor del piloto (Shift en parapente sigue pilotando)
             // VISTA DE AVE: arrastrar mueve el mundo bajo tus manos (como un mapa) y te lleva con él
@@ -3002,6 +3003,7 @@
             }
 
             camera.position.copy(_vs.eye); camera.quaternion.copy(_vs.q);
+            if (PET.check) petRaycast();
             renderer.render(scene, camera);
             camera.position.copy(P); camera.quaternion.copy(_vs.quat);   // de vuelta al piloto
 
@@ -3515,6 +3517,20 @@ void main(){
             flapWings() { PK.dragonEnergy = Math.min(100, PK.dragonEnergy + 2); this._wflap = 1.2; PK.love = Math.min(100, PK.love + 5); }
         }
 
+        // ---------- caricias con el puntero (como en Pikitipu: mantener el clic sobre él) ----------
+        const PET = { ptr: false, check: false, ndc: new THREE.Vector2(), ray: new THREE.Raycaster(), msgT: 0 };
+        function petPointerDown(target, x, y) {
+            if (!renderer || target !== renderer.domElement || MAP.open || !AV.root || !AV.root.visible) return;
+            PET.ndc.set(x / window.innerWidth * 2 - 1, -(y / window.innerHeight) * 2 + 1); PET.check = true;
+        }
+        function petPointerUp() { PET.ptr = false; PET.check = false; }
+        function petRaycast() {
+            PET.check = false; if (!isMouseDown) return;
+            camera.updateMatrixWorld(); PET.ray.setFromCamera(PET.ndc, camera);
+            const objs = PK.form === 'dragon' ? (AV.dragon.holder.visible ? [AV.dragon.g] : []) : (AV.pikiHolder.visible ? [AV.piki.body] : []);
+            if (objs.length && PET.ray.intersectObjects(objs, true).length) PET.ptr = true;
+        }
+
         // ---------- avatar en el mundo ----------
         const AV = { root: null, wing: null, piki: null, pikiHolder: null, dragon: null, hearts: [], t: 0 };
         const PIKI_SCALE = 0.55, DRAGON_SCALE = 1.25;
@@ -3772,16 +3788,20 @@ void main(){
 
         // ---------- conexión con KP ----------
         const KP = { http: 'http://127.0.0.1:5000', local: 'ws://127.0.0.1:8765', relay: 'wss://musicosmosonline.com',
-                     ch: { local: null, relay: null }, retry: { local: false, relay: false }, src: null, seen: new Set(), seq: null, egg: false };
+                     ch: { local: null, relay: null }, retry: { local: false, relay: false }, src: null, seen: new Set(), seq: null, egg: false,
+                     recv: 0, last: '', ports: {} };
         function kpStatus(online, src) {
             PK.kpOnline = online; KP.src = src;
             const dot = document.getElementById('ph-kp'), lbl = document.getElementById('ph-kp-lbl');
             if (dot) dot.classList.toggle('on', online);
-            if (lbl) lbl.textContent = online ? (src === 'relay' ? 'KP por relay' : src === 'http' ? 'KP conectado (respaldo)' : 'KP local conectado') : 'KP desconectado · Pikitipu sigue su ritmo';
+            if (lbl) lbl.textContent = online ? (src === 'relay' ? 'KP por relay' : src === 'http' ? 'KP conectado (respaldo)' : 'KP local conectado')
+                + (KP.recv ? ` · ${KP.recv} ${KP.recv === 1 ? 'tarea recibida' : 'tareas recibidas'}` : ' · esperando tareas') : 'KP desconectado · Pikitipu sigue su ritmo';
         }
         function kpDispatch(m) {
             const key = m.event_id || (m.timestamp ? `${m.type}|${m.timestamp}|${m.user || ''}` : null);
             if (key) { if (KP.seen.has(key)) return; KP.seen.add(key); if (KP.seen.size > 600) KP.seen.clear(); }
+            console.log('[KP] evento recibido:', m.type, m.task_name || '');
+            if (m.type === 'TASK_COMPLETE') { KP.recv++; kpStatus(PK.kpOnline, KP.src); }
             const fn = PK_ON[m.type || '']; if (fn && AV.piki) { try { fn(m); } catch (e) { console.warn('[KP]', m.type, e); } }
         }
         function kpCanal(src, url, waitMs) {
@@ -3798,16 +3818,24 @@ void main(){
         async function kpPost(path, body) {
             try { const r = await fetch(KP.http + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); return await r.json(); } catch (_) { return null; }
         }
-        let kpEventWait = 2000;
-        async function kpEventos() {
+        // Respaldo HTTP: cada sesión de KP guarda sus pulsos en su propio puerto (5000, 5001…).
+        // Solo la primera emite por el WebSocket :8765, así que se escuchan todas.
+        function kpEventos() { [5000, 5001, 5002, 5003].forEach(kpEventosPuerto); }
+        async function kpEventosPuerto(port) {
+            const st = KP.ports[port] || (KP.ports[port] = { seq: null, ok: false });
+            let wait = 2000;
             try {
-                const r = await fetch(`${KP.http}/api/eventos?desde=${KP.seq ?? 0}`, { cache: 'no-store' });
+                const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), 2500);
+                const r = await fetch(`http://127.0.0.1:${port}/api/eventos?desde=${st.seq ?? 0}`, { cache: 'no-store', signal: ctl.signal }); clearTimeout(to);
                 const d = await r.json();
-                if (KP.seq === null) KP.seq = d.ultimo; else { d.eventos.forEach(e => kpDispatch(e)); KP.seq = d.ultimo; }
-                kpEventWait = 2000;
+                if (st.seq === null) st.seq = d.ultimo; else { d.eventos.forEach(e => kpDispatch(e)); st.seq = d.ultimo; }
+                st.ok = true;
                 if (!KP.ch.local && !KP.ch.relay) kpStatus(true, 'http');
-            } catch (_) { kpEventWait = 10000; if (!KP.ch.local && !KP.ch.relay) kpStatus(false, null); }
-            setTimeout(kpEventos, kpEventWait);
+            } catch (_) {
+                st.ok = false; wait = port === 5000 ? 10000 : 20000;
+                if (!KP.ch.local && !KP.ch.relay && !Object.values(KP.ports).some(p => p.ok)) kpStatus(false, null);
+            }
+            setTimeout(() => kpEventosPuerto(port), wait);
         }
         function kpFecha(s) {
             if (!s || typeof s !== 'string') return null;
@@ -3864,8 +3892,8 @@ void main(){
             hzInit(); ofInit();
             document.getElementById('ph-evo').addEventListener('click', pkEvolve);
             document.getElementById('ph-ret').addEventListener('click', pkReturn);
-            window.addEventListener('keydown', e => { if (e.code === 'KeyH' && !/INPUT|SELECT/.test(e.target.tagName)) PK.petting = true; });
-            window.addEventListener('keyup', e => { if (e.code === 'KeyH') PK.petting = false; });
+            window.addEventListener('keydown', e => { if (e.code === 'KeyH' && !/INPUT|SELECT/.test(e.target.tagName)) PK.petKey = true; });
+            window.addEventListener('keyup', e => { if (e.code === 'KeyH') PK.petKey = false; });
             kpStatus(false, null);
             kpCanal('local', KP.local, 4000); kpCanal('relay', KP.relay, 20000);
             setTimeout(kpEventos, 1000); setTimeout(leerKPEgg, 400); setInterval(leerKPEgg, 20000);
@@ -3874,6 +3902,8 @@ void main(){
 
         function kpEcoFrame(dt, P, yaw, adapt, camH, b, eg) {
             AV.t += dt; const t = AV.t;
+            PK.petting = !!(PK.petKey || PET.ptr);
+            PET.msgT = Math.max(0, PET.msgT - dt);
             // decaimiento y ánimo: con datos de KP siguen tu actividad real
             if (KP.egg) {
                 const k = Math.min(1, dt * .04);
@@ -3882,8 +3912,17 @@ void main(){
             } else if (!PK.petting && !PK.timerActive) { PK.happiness = Math.max(0, PK.happiness - .2 * dt); PK.energy = Math.max(0, PK.energy - .05 * dt); }
             PK.bond = Math.max(0, PK.bond - .04 * dt);
             if (PK.petting) {   // H: acariciar
-                if (PK.form === 'dragon') { PK.dragonEnergy = Math.min(100, PK.dragonEnergy + 9 * dt); PK.love = Math.min(100, PK.love + 6 * dt); PK.bond = Math.min(100, PK.bond + 5 * dt); }
-                else { PK.happiness = Math.min(100, PK.happiness + 32 * dt); PK.bond = Math.min(100, PK.bond + 14 * dt); PK.love = Math.min(100, PK.love + 10 * dt); AV.piki.squish = Math.min(.26, AV.piki.squish + dt * 4.5); }
+                if (PK.form === 'dragon') {   // la llama sube, el vínculo crece y Hakuryū te reconoce
+                    PK.dragonEnergy = Math.min(100, PK.dragonEnergy + 9 * dt); PK.love = Math.min(100, PK.love + 6 * dt);
+                    PK.bond = Math.min(100, PK.bond + 5 * dt); PK.happiness = Math.min(100, PK.happiness + 8 * dt);
+                    if (Math.random() < dt * .8) AV.dragon.flapWings();
+                    PK_U.flashCol.value.set(0xffd27a); PK_U.flashInt.value = Math.max(PK_U.flashInt.value, .18);
+                    if (!PET.msgT) { pkMood('Hakuryū ronronea'); PET.msgT = 4; }
+                } else {
+                    PK.happiness = Math.min(100, PK.happiness + 32 * dt); PK.bond = Math.min(100, PK.bond + 14 * dt); PK.love = Math.min(100, PK.love + 10 * dt);
+                    AV.piki.squish = Math.min(.26, AV.piki.squish + dt * 4.5);
+                    if (!PET.msgT) { pkMood(PK.happiness > 80 ? 'Pikitipu se derrite de alegría' : 'Pikitipu se pone contento'); PET.msgT = 4; }
+                }
                 if (Math.random() < dt * 3.5) avSpawnHearts(1);
             }
             if (PK.form === 'dragon' && PK.evoPhase === 'dragon' && !PK.petting) {
@@ -4585,7 +4624,8 @@ void main(){
             let pinch = null;
             cv.addEventListener('touchstart', e => {
                 e.preventDefault(); uiWake();
-                if (e.touches.length === 1) { isMouseDown = true; lastMousePos = { x: e.touches[0].clientX, y: e.touches[0].clientY }; }
+                if (e.touches.length === 1) { isMouseDown = true; lastMousePos = { x: e.touches[0].clientX, y: e.touches[0].clientY }; petPointerDown(cv, e.touches[0].clientX, e.touches[0].clientY); }
+                else petPointerUp();
                 if (e.touches.length === 2) { isMouseDown = false; pinch = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); }
             }, { passive: false });
             cv.addEventListener('touchmove', e => {
@@ -4598,7 +4638,7 @@ void main(){
                     else VIEW.target = THREE.MathUtils.clamp(VIEW.target + k, 0, 2);
                 }
             }, { passive: false });
-            cv.addEventListener('touchend', e => { if (e.touches.length === 0) { isMouseDown = false; pinch = null; } });
+            cv.addEventListener('touchend', e => { if (e.touches.length === 0) { isMouseDown = false; pinch = null; petPointerUp(); } });
         }
         // interfaz mínima: tras 5 s sin tocar, se desvanece; un toque la trae de vuelta
         let uiTimer = null;
@@ -4627,7 +4667,7 @@ void main(){
             holdBtn('mb-fly', () => modeKeyT(), null);
             holdBtn('mb-walk', () => modeKeyC(), null);
             holdBtn('mb-view', () => { VIEW.eagle = false; VIEW.target = VIEW.target < 0.5 ? 1 : VIEW.target < 1.5 ? 2 : 0; }, null);
-            holdBtn('mb-pet', () => { PK.petting = true; }, () => { PK.petting = false; });
+            holdBtn('mb-pet', () => { PK.petKey = true; }, () => { PK.petKey = false; });
             holdBtn('mb-ears', () => { JOY.ears = true; }, () => { JOY.ears = false; });
             holdBtn('mb-spiral', () => { JOY.spiral = true; }, () => { JOY.spiral = false; });
             const menu = document.getElementById('btn-menu');
