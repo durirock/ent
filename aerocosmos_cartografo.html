@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>AeroCosmos Cartógrafo</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -33,18 +33,23 @@
         .vario-negative { color: #f87171; }
         .wind-row { font-size: 0.7rem; color: #94a3b8; letter-spacing: 1px; margin-top: 8px; border-top: 1px solid rgba(255,255,255,0.12); padding-top: 8px; }
 
-        .top-buttons { position: absolute; top: 20px; right: 20px; display: flex; gap: 10px; z-index: 20; }
+        .top-buttons { position: absolute; top: 20px; right: 20px; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; max-width: 70vw; z-index: 20; }
 
+        /* Botones: vidrio oscuro, línea fina, rótulo en versalitas espaciadas. Rectángulo de esquinas
+           suaves (no círculos de juguete): calma visual, jerarquía por luz y no por color. */
         .icon-btn {
-            background: linear-gradient(135deg, #1e3a8a, #3b82f6); color: white;
-            width: 45px; height: 45px; border-radius: 50%; font-size: 1.5rem;
-            display: flex; justify-content: center; align-items: center; cursor: pointer;
-            border: 2px solid rgba(255,255,255,0.2); box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-            transition: all 0.2s;
+            height: 34px; min-width: 34px; padding: 0 14px; border-radius: 9px;
+            display: flex; align-items: center; justify-content: center; cursor: pointer; user-select: none;
+            font: 600 10.5px/1 'Segoe UI', system-ui, -apple-system, sans-serif; letter-spacing: .16em; text-transform: uppercase;
+            color: #e6ebf2; background: rgba(9, 13, 22, .56); border: 1px solid rgba(255, 255, 255, .15);
+            box-shadow: 0 6px 18px rgba(0, 0, 0, .28), inset 0 1px 0 rgba(255, 255, 255, .06);
+            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            transition: background .2s, border-color .2s, color .2s, transform .12s;
         }
-        .icon-btn:hover { transform: scale(1.1); }
-        .icon-btn:active { transform: scale(0.95); }
-        .active-btn { background: linear-gradient(135deg, #b45309, #f59e0b); }
+        .icon-btn:hover { background: rgba(18, 26, 42, .72); border-color: rgba(255, 255, 255, .3); }
+        .icon-btn:active { transform: scale(.97); }
+        .active-btn { color: #fde68a !important; border-color: rgba(251, 191, 36, .7) !important; background: rgba(36, 26, 8, .62) !important;
+            box-shadow: 0 0 0 1px rgba(251, 191, 36, .18), 0 6px 18px rgba(0, 0, 0, .28), inset 0 0 14px rgba(251, 191, 36, .1) !important; }
 
         #music-panel {
             position: absolute; top: 75px; right: 20px; background: rgba(10, 5, 0, 0.9);
@@ -98,6 +103,74 @@
             background: rgba(4,8,18,0.9); backdrop-filter: blur(4px); }
         #map2d .map-bar { color: #e2e8f0; font-size: 12px; letter-spacing: 1px; margin-bottom: 8px; display: flex; flex-wrap: wrap; gap: 16px; align-items: center; font-family: monospace; padding: 0 16px; }
         #map-canvas { border: 1px solid rgba(255,255,255,0.25); border-radius: 6px; cursor: crosshair; box-shadow: 0 10px 40px rgba(0,0,0,0.6); max-width: 94vw; }
+        /* ---------- capa móvil ---------- */
+        #launch-chip { position: absolute; left: 50%; bottom: 66px; transform: translateX(-50%); z-index: 15; display: none; pointer-events: none;
+            background: rgba(6,10,22,.8); color: #fbbf24; border: 1px solid rgba(251,191,36,.4); padding: 5px 12px; border-radius: 999px; font-size: 12px; white-space: nowrap; max-width: 92vw; overflow: hidden; text-overflow: ellipsis; }
+        #launch-chip.ok { color: #63f5a1; border-color: rgba(99,245,161,.6); }
+        .joy-zone, #mob-actions, #mob-inst, #btn-menu, #btn-fs { display: none; }
+        body.movil { touch-action: none; overscroll-behavior: none; }
+        body.movil .joy-zone { display: block; position: absolute; bottom: 0; width: 42vw; height: 48vh; z-index: 14; touch-action: none; }
+        body.movil #joy-left { left: 0; } body.movil #joy-right { right: 0; }
+        .joy-base { position: absolute; left: 92px; top: calc(100% - 96px); width: 116px; height: 116px; transform: translate(-50%, -50%); border-radius: 50%;
+            background: radial-gradient(circle, rgba(255,255,255,.05) 0%, rgba(255,255,255,0) 70%); border: 1px solid rgba(255,255,255,.22); transition: opacity .5s, border-color .2s; }
+        #joy-right .joy-base { left: calc(100% - 92px); }
+        .joy-knob { position: absolute; left: 50%; top: 50%; width: 42px; height: 42px; margin: -21px 0 0 -21px; border-radius: 50%;
+            background: rgba(230,235,242,.16); border: 1px solid rgba(255,255,255,.5); box-shadow: inset 0 1px 0 rgba(255,255,255,.15); }
+        .joy-zone.on .joy-base { border-color: rgba(251,191,36,.6); }
+        body.movil #mob-actions { display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); z-index: 16; }
+        .mb { height: 34px; padding: 0 11px; border-radius: 9px; display: flex; align-items: center; justify-content: center; user-select: none; -webkit-user-select: none;
+            font: 600 9.5px/1 'Segoe UI', system-ui, sans-serif; letter-spacing: .14em; text-transform: uppercase; color: #e6ebf2;
+            background: rgba(9,13,22,.56); border: 1px solid rgba(255,255,255,.17); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+        .mb.wide { color: #fde68a; border-color: rgba(251,191,36,.5); }
+        .mb:active { background: rgba(28,38,60,.78); }
+        .mb.fly-only { display: none; }
+        body[data-mode=fly] .mb.fly-only { display: flex; }
+        body[data-mode=fly] #mb-up, body[data-mode=fly] #mb-down, body[data-mode=fly] #mb-walk,
+        body[data-mode=walk] #mb-down, body[data-mode=walk] #mb-walk { display: none; }
+        body.movil #mob-inst { position: absolute; top: 34px; left: 50%; transform: translateX(-50%); z-index: 15; font: 600 11px monospace; color: #e0f2fe;
+            background: rgba(0,0,0,.6); padding: 4px 10px; border-radius: 999px; white-space: nowrap; pointer-events: none; }
+        body.movil .controls-hint, body.movil .flight-instruments { display: none !important; }
+        body.movil .ui-overlay { top: 8px; left: 10px; }
+        body.movil .ui-overlay h1 { font-size: 1.05rem; }
+        body.movil .ui-overlay p:not(#mode-status) { display: none; }
+        body.movil .ui-overlay #mode-status { font-size: 9px; margin-top: 0; }
+        body.movil .top-buttons { top: 8px; right: 8px; gap: 6px; flex-wrap: wrap; max-width: 62vw; justify-content: flex-end; }
+        body.movil .icon-btn { height: 32px; padding: 0 11px; font-size: 9.5px; }
+        body.movil #btn-menu, body.movil #btn-fs { display: flex; }
+        body.movil .top-buttons:not(.open) .icon-btn:not(#btn-menu):not(#btn-paraglider):not(#btn-fs) { display: none; }
+        body.movil #piki-hud { top: 46px; left: 8px; width: 138px; padding: 6px 8px; font-size: 9px; }
+        #piki-hud.min .ph-row, #piki-hud.min .ph-btn, #piki-hud.min #ph-kp-lbl { display: none !important; }
+        #piki-hud.min { width: auto; padding-bottom: 8px; }
+        #piki-hud.min .ph-head { margin-bottom: 0; }
+        .ph-head { cursor: pointer; gap: 8px; }
+        .ph-tog { margin-left: auto; font-size: 9px; font-weight: 600; letter-spacing: .14em; color: #94a3b8; text-transform: uppercase; }
+        .wneedle { display: inline-block; width: 2px; height: 13px; margin-left: 5px; vertical-align: middle; border-radius: 1px;
+            background: linear-gradient(to top, rgba(226,232,240,.15), #e2e8f0); }
+        body.movil #view-chip { bottom: auto; top: 6px; padding: 3px 6px; font-size: 9px; gap: 2px; }
+        body.movil #view-chip span { padding: 2px 6px; }
+        body.movil #view-bar { display: none; }
+        body.movil #launch-chip { bottom: 58px; font-size: 10px; }
+        body.movil #ph-mood { bottom: 86px; font-size: 11px; }
+        body.movil #ph-toasts { top: 58px; width: min(300px, 60vw); }
+        body.movil #settings-panel, body.movil #music-panel, body.movil #radio-panel, body.movil #terrain-editor {
+            left: 8px !important; right: 8px !important; width: auto !important; top: 52px !important; bottom: auto !important; max-height: 72vh; overflow-y: auto; }
+        .ui-overlay, .top-buttons, #piki-hud, #view-chip, #mob-actions, #mob-inst, #launch-chip, #controls { transition: opacity .6s; }
+        body.ui-idle .ui-overlay, body.ui-idle .top-buttons, body.ui-idle #piki-hud, body.ui-idle #view-chip,
+        body.ui-idle #mob-actions, body.ui-idle #mob-inst, body.ui-idle #launch-chip, body.ui-idle #controls { opacity: 0; pointer-events: none; }
+        /* paneles de información y teclas: minimizables */
+        .pn-tog { pointer-events: auto; cursor: pointer; font-size: 9px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: #94a3b8; }
+        .pn-tog:hover { color: #e2e8f0; }
+        .ui-overlay h1 { display: inline-block; }
+        .ui-overlay .pn-tog { display: inline-block; vertical-align: middle; margin-left: 14px; white-space: nowrap; text-shadow: none; }
+        .ui-overlay.min p:not(#mode-status) { display: none; }
+        .ui-overlay.min h1 { font-size: 1.15rem; }
+        #controls .pn-head { display: flex; justify-content: space-between; align-items: center; gap: 14px; margin-bottom: 6px;
+            font-size: 10px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; color: #cbd5e1; }
+        #controls.min #controls-body { display: none; }
+        #controls.min .pn-head { margin-bottom: 0; }
+        #controls.min { padding: 9px 14px; }
+        body.movil .ui-overlay .pn-tog { display: none; }
+        body.movil.ui-idle .joy-base { opacity: .28; }
         #piki-hud { position: absolute; left: 20px; top: 205px; width: 200px; z-index: 12; background: rgba(6, 10, 22, 0.72); color: #e2e8f0;
             border: 1px solid rgba(99, 245, 161, 0.35); border-radius: 12px; padding: 10px 12px; font-size: 11px; backdrop-filter: blur(8px); }
         .ph-head { display: flex; justify-content: space-between; align-items: center; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; color: #63f5a1; margin-bottom: 6px; }
@@ -153,7 +226,7 @@
     </div>
 
     <div class="ui-overlay">
-        <h1 class="text-4xl font-black tracking-tighter uppercase text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-green-300 drop-shadow-md">AeroCosmos</h1>
+        <h1 class="text-4xl font-black tracking-tighter uppercase text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-green-300 drop-shadow-md">AeroCosmos</h1><span class="pn-tog" id="info-tog">ocultar información</span>
         <p class="text-[11px] uppercase tracking-widest text-amber-300 font-bold">Cartógrafo · un mundo hecho solo de tus dibujos</p>
         <p class="text-[10px] opacity-70 font-mono" id="tinta-load"></p>
         <p class="text-xs opacity-90 mt-1 font-mono" id="coords">Lat: 0 | Lon: 0</p>
@@ -162,14 +235,16 @@
     </div>
 
     <div class="top-buttons">
-        <div class="icon-btn" id="btn-view" title="Cambiar vista: ave · 3ª · 1ª persona (V / rueda)" style="font-size:1.25rem">◎</div>
-        <div class="icon-btn" id="btn-editor" title="Editor de terrenos (E)" style="font-size:1.25rem">✎</div>
-        <div class="icon-btn" id="btn-map" title="Vista de águila sobre el mapa (5)" style="font-size:1.25rem">▦</div>
-        <div class="icon-btn" id="btn-funk" title="Groove funk: encender / apagar (N)" style="font-size:1.1rem">▶</div>
-        <div class="icon-btn" id="btn-music" title="Núcleo funk">🎵</div>
-        <div class="icon-btn" id="btn-radio" title="Radio Tagua Tagua">📻</div>
-        <div class="icon-btn" id="btn-settings" title="Configuración visual">⚙️</div>
-        <div class="icon-btn" id="btn-paraglider" title="Volar parapente">🪂</div>
+        <div class="icon-btn" id="btn-menu" title="Más opciones">Menú</div>
+        <div class="icon-btn" id="btn-fs" title="Pantalla completa">Pantalla</div>
+        <div class="icon-btn" id="btn-view" title="Cambiar vista: ave, 3ª o 1ª persona (V o rueda)">Vista</div>
+        <div class="icon-btn" id="btn-editor" title="Editor de terrenos (E)">Editor</div>
+        <div class="icon-btn" id="btn-map" title="Vista de águila sobre el mapa (5)">Águila</div>
+        <div class="icon-btn" id="btn-funk" title="Groove funk: encender o apagar (N)">Groove</div>
+        <div class="icon-btn" id="btn-music" title="Núcleo funk">Música</div>
+        <div class="icon-btn" id="btn-radio" title="Radio Tagua Tagua">Radio</div>
+        <div class="icon-btn" id="btn-settings" title="Ajustes">Ajustes</div>
+        <div class="icon-btn" id="btn-paraglider" title="Parapente (T)">Volar</div>
     </div>
 
     <div id="settings-panel">
@@ -211,6 +286,10 @@
                 <option value="mixto">Mixto: planeta procedural con dibujos intercalados</option>
                 <option value="procedural">Procedural: el planeta original, sin dibujos</option>
             </select>
+        </div>
+        <div class="control-group">
+            <label class="te-chk" style="font-size:12px;color:#e2e8f0"><input type="checkbox" id="cfg-corrientes" checked> Ver corrientes de aire (rojo sube, azul baja)</label>
+            <label class="te-chk" style="font-size:12px;color:#e2e8f0"><input type="checkbox" id="cfg-estable" checked> Cámara estable en vuelo (horizonte nivelado)</label>
         </div>
         <div class="control-group">
             <label>Curvas de nivel: <span id="val-contour">85</span>%</label>
@@ -272,17 +351,20 @@
     </div>
 
     <div class="controls-hint" id="controls">
+        <div class="pn-head"><span>Teclas</span><span class="pn-tog" id="keys-tog">ocultar</span></div>
+        <div id="controls-body">
         <p><strong>Click + arrastrar:</strong> mirar</p>
         <p><strong>WASD:</strong> moverse</p>
         <p><strong>Z / X:</strong> subir / bajar</p>
-        <p><strong>Rueda / V:</strong> ave ⇄ 3ª ⇄ 1ª persona</p>
+        <p><strong>Rueda / V:</strong> ave, 3ª o 1ª persona</p>
                     <p><strong>5:</strong> águila · <strong>M:</strong> mapa · <strong>E:</strong> editor</p>
                     <p><strong>Vista de ave:</strong> arrastra o WASD para recorrer · <strong>H:</strong> acariciar</p>
                     <p><strong>En parapente:</strong> arrastrar gira la cámara en torno a Pikitipu · <strong>N:</strong> groove on/off</p>
+        </div>
     </div>
 
     <div id="terrain-editor">
-        <h2>Editor de terrenos <span id="te-close" title="cerrar (E)">×</span></h2>
+        <h2>Editor de terrenos <span id="te-close" title="cerrar (E)" style="font-size:10px;letter-spacing:.14em">CERRAR</span></h2>
         <select id="te-map" class="te-select"></select>
         <canvas id="te-preview" width="260" height="260"></canvas>
         <label class="te-chk"><input type="checkbox" id="te-show-ink" checked> mostrar trazo original</label>
@@ -308,8 +390,20 @@
         <p class="te-info">Los cambios se aplican al soltar el control y se guardan en este navegador.</p>
     </div>
 
+    <div id="mob-inst"></div>
+    <div id="launch-chip"></div>
+    <div id="joy-left" class="joy-zone"><div class="joy-base"><div class="joy-knob"></div></div></div>
+    <div id="joy-right" class="joy-zone"><div class="joy-base"><div class="joy-knob"></div></div></div>
+    <div id="mob-actions">
+        <div class="mb" id="mb-up">Subir</div><div class="mb" id="mb-down">Bajar</div>
+        <div class="mb fly-only" id="mb-ears">Orejas</div><div class="mb fly-only" id="mb-spiral">Espiral</div>
+        <div class="mb wide" id="mb-fly">Volar</div>
+        <div class="mb wide" id="mb-walk">A pie</div>
+        <div class="mb" id="mb-view">Vista</div><div class="mb" id="mb-pet">Cariño</div>
+    </div>
+
     <div id="piki-hud">
-        <div class="ph-head"><span id="ph-name">Pikitipu</span><span id="ph-kp" class="ph-dot" title="Killer Pendiente"></span></div>
+        <div class="ph-head" title="Minimizar o abrir"><span id="ph-name">Pikitipu</span><span id="ph-kp" class="ph-dot" title="Killer Pendiente"></span><span class="ph-tog" id="ph-tog">ocultar</span></div>
         <div class="ph-row"><span>Felicidad</span><i><b id="phb-h" style="background:#ff8da1"></b></i></div>
         <div class="ph-row"><span>Energía</span><i><b id="phb-e" style="background:#63f5a1"></b></i></div>
         <div class="ph-row"><span>Vínculo</span><i><b id="phb-bond" style="background:#5ce6ff"></b></i></div>
@@ -525,7 +619,8 @@
         // =====================================================================
         TINTA.MODE = (() => { try { return localStorage.getItem('aerocosmos.mundo') || 'dibujos'; } catch (_) { return 'dibujos'; } })();
         TINTA.byFile = new Map(); TINTA.failed = new Set(); TINTA.loading = null;
-        TINTA.WARM_CELLS = 3;          // zona tibia: islas a ≤3 celdas (≈9 km) se preparan antes de verse
+        TINTA.WARM_CELLS = 3;
+        if (window.matchMedia && matchMedia('(pointer: coarse)').matches) { TINTA.SHARP_RES = 1400; TINTA.WARM_CELLS = 2; }   // celular: más liviano          // zona tibia: islas a ≤3 celdas (≈9 km) se preparan antes de verse
         TINTA.PROB_MIXTO = 0.45;       // en modo mixto, menos celdas con dibujo: el planeta se asoma entre ellas
 
         // Proceso pesado de un dibujo (desenfoques, análisis, rasters). Corre dentro del Worker.
@@ -1082,7 +1177,7 @@
 
             renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
             renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, (window.matchMedia && matchMedia('(pointer: coarse)').matches) ? 1.25 : 1.5));
             // BUG ENCONTRADO ("muy saturado, la tierra se ve blanca"): sin tone mapping,
             // r128 recorta a blanco puro cualquier fragmento iluminado que pase de 1.0 —
             // pasaba fácil con sunLight(1.2) + ambient sumados sobre terreno claro (arena).
@@ -1134,12 +1229,12 @@
 
             window.addEventListener('keydown', e => keys[e.code] = true);
             window.addEventListener('keyup', e => keys[e.code] = false);
-            window.addEventListener('mousedown', e => { isMouseDown = true; lastMousePos = { x: e.clientX, y: e.clientY }; });
-            window.addEventListener('mouseup', () => { isMouseDown = false; });
+            window.addEventListener('mousedown', e => { isMouseDown = true; lastMousePos = { x: e.clientX, y: e.clientY }; if (e.button === 0) petPointerDown(e.target, e.clientX, e.clientY); });
+            window.addEventListener('mouseup', () => { isMouseDown = false; petPointerUp(); });
             window.addEventListener('mousemove', onMouseMove);
             window.addEventListener('resize', onResize);
 
-            document.getElementById('btn-paraglider').addEventListener('click', toggleParagliderMode);
+            document.getElementById('btn-paraglider').addEventListener('click', () => modeKeyT());
             initCartografo();
 
             const musicBtn = document.getElementById('btn-music');
@@ -1821,53 +1916,38 @@
         // =====================================================================
         // PARAPENTE — física de v6 + rotor de sotavento de v2
         // =====================================================================
-        function toggleParagliderMode() {
+        function toggleParagliderMode(fromWalk) {
+            const launching = fromWalk === true;
             isParagliding = !isParagliding;
             const btn = document.getElementById('btn-paraglider');
             const inst = document.getElementById('instruments');
-            const ctrls = document.getElementById('controls');
-            const status = document.getElementById('mode-status');
-
             if (isParagliding) {
+                isWalking = false;
                 btn.classList.add('active-btn');
                 inst.style.display = 'block';
-                ctrls.innerHTML = `
-                    <p><strong>Click + arrastrar:</strong> mirar libremente</p>
-                    <p><strong>Shift + arrastrar:</strong> pilotar la vela</p>
-                    <p><strong>A / D:</strong> virar · <strong>W / S:</strong> picar / frenar</p>
-                    <p><strong>Rueda / V:</strong> ave ⇄ 3ª ⇄ 1ª persona</p>
-                    <p><strong>5:</strong> águila · <strong>M:</strong> mapa · <strong>E:</strong> editor</p>
-                    <p><strong>Vista de ave:</strong> arrastra o WASD para recorrer · <strong>H:</strong> acariciar</p>
-                    <p><strong>En parapente:</strong> arrastrar gira la cámara en torno a Pikitipu · <strong>N:</strong> groove on/off</p>
-                    <p class="opacity-70 mt-2">Busca ladera de cara al viento para ganar altura.</p>
-                `;
-                status.innerText = "Modo: piloto de parapente";
-
+                setModeUI('fly');
                 pg.velocity.set(0, 0, 0);
-                pg.pitchAngle = 0; pg.rollAngle = 0; pg.targetRoll = 0; pg.targetPitch = 0;
-                cameraRotY = camera.rotation.y; cameraRotX = 0;
-
-                const groundY = Math.max(SEA_LEVEL, noise.get(camera.position.x, camera.position.z));
-                if (camera.position.y < groundY + 50) camera.position.y = groundY + 250;
+                pg.pitchAngle = 0; pg.rollAngle = 0; pg.targetRoll = 0; pg.targetPitch = 0; LAND.on = false; LAND.k = 0;
+                cameraRotX = 0;
+                Object.assign(PGX, { ears: 0, spiral: 0, V: launching ? 4 : 10.5, bank: 0, brake: 0, bar: 0, stall: 0, stallT: 0, pitchOsc: 0, pitchVel: 0, vz: 0, launchT: launching ? 4.0 : 0 });
+                if (launching) { pkToast && pkToast('Despegue', 'Corre ladera abajo… la vela se infla.', '#63f5a1'); document.getElementById('launch-chip').style.display = 'none'; }
+                else {
+                    // desde la exploración libre: se abre la vela en el aire
+                    const groundY = Math.max(SEA_LEVEL, noise.get(camera.position.x, camera.position.z));
+                    if (camera.position.y < groundY + 50) camera.position.y = groundY + 250;
+                }
             } else {
                 btn.classList.remove('active-btn');
                 inst.style.display = 'none';
-                ctrls.innerHTML = `
-                    <p><strong>Click + arrastrar:</strong> mirar</p>
-                    <p><strong>WASD:</strong> moverse</p>
-                    <p><strong>Z / X:</strong> subir / bajar</p>
-                    <p><strong>Rueda / V:</strong> ave ⇄ 3ª ⇄ 1ª persona</p>
-                    <p><strong>5:</strong> águila · <strong>M:</strong> mapa · <strong>E:</strong> editor</p>
-                    <p><strong>Vista de ave:</strong> arrastra o WASD para recorrer · <strong>H:</strong> acariciar</p>
-                    <p><strong>En parapente:</strong> arrastrar gira la cámara en torno a Pikitipu · <strong>N:</strong> groove on/off</p>
-                `;
-                status.innerText = "Modo: exploración libre";
+                setModeUI('free');
                 camera.rotation.z = 0;
                 windParticles.forEach(p => p.material.opacity = 0);
+                if (VARIO.gain && audioCtx) VARIO.gain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.03);
             }
         }
 
         function onMouseMove(e) {
+            if (PET.ptr) { lastMousePos = { x: e.clientX, y: e.clientY }; return; }   // acariciando: la cámara se queda quieta
             if (!isMouseDown || MAP.open) return;
             // ÁGUILA: arrastrar gira e inclina la cámara alrededor del piloto (Shift en parapente sigue pilotando)
             // VISTA DE AVE: arrastrar mueve el mundo bajo tus manos (como un mapa) y te lleva con él
@@ -1901,141 +1981,150 @@
             lastMousePos = { x: e.clientX, y: e.clientY };
         }
 
+        // Cámara estable: como un gimbal, el horizonte queda casi nivelado; la vela y Pikitipu sí se inclinan
+        let CAM_STABLE = (() => { try { return localStorage.getItem('aerocosmos.estable') !== 'off'; } catch (_) { return true; } })();
+        // Aterrizaje: recogida (flare) automática en los últimos metros y carrera de salida con la vela cayendo atrás
+        const LAND = { on: false, t: 0, dur: 1.8, v: 0, dx: 0, dz: 0, k: 0, step: 0 };
+        function landRunout(dt) {
+            const P = camera.position;
+            LAND.t += dt; const k = Math.min(1, LAND.t / LAND.dur); LAND.k = k;
+            const v = LAND.v * Math.pow(1 - k, 1.6) + 1.2 * (1 - k);          // frena corriendo hasta quedar de pie
+            P.x += LAND.dx * v * dt; P.z += LAND.dz * v * dt;
+            const g = Math.max(SEA_LEVEL, noise.get(P.x, P.z));
+            LAND.step += v * dt * 1.9;
+            P.y = g + 1.7 + Math.sin(LAND.step * 2) * 0.06 * Math.min(1, v / 3);
+            camera.rotation.order = 'YXZ';
+            camera.rotation.z *= Math.max(0, 1 - dt * 6);
+            camera.rotation.x += (THREE.MathUtils.clamp(cameraRotX, -0.4, 0.2) - camera.rotation.x) * Math.min(1, dt * 3);
+            camera.rotation.y = cameraRotY;
+            const st = Math.floor(LAND.step / Math.PI); if (st !== WALK.step && v > 0.6) { WALK.step = st; footstep(false); }
+            pg.rollAngle *= Math.max(0, 1 - dt * 4);
+            document.getElementById('inst-spd').innerText = (v * 3.6).toFixed(0);
+            document.getElementById('inst-var').innerText = '0.0';
+            if (k >= 1) { LAND.on = false; LAND.k = 0; WALK.phase = LAND.step; enterWalk(); }
+        }
         function updateParaglider(dt) {
-            if (!keys['ShiftLeft'] && !keys['ShiftRight']) {
+            if (LAND.on) { landRunout(dt); return; }
+            // =================================================================
+            // VUELO REAL DE PARAPENTE
+            // -----------------------------------------------------------------
+            // Ala: polar real (trim 38 km/h, tasa de caída 1,15 m/s, fineza ~9),
+            // acelerador (W) y frenos (S), giro por alabeo: ω = g·tan(φ)/V, con más
+            // caída en viraje (factor de carga). Pérdida si se frena a fondo.
+            // Aire: viento con gradiente y rachas, ascendencia de ladera, rotor a
+            // sotavento, térmicas que nacen, derivan, se inclinan y mueren bajo su
+            // cúmulo, descendencias entre ellas y turbulencia. El terreno no empuja:
+            // si chocas, aterrizas.
+            // =================================================================
+            const shift = keys['ShiftLeft'] || keys['ShiftRight'];
+            if (!shift) {
                 pg.targetRoll = THREE.MathUtils.lerp(pg.targetRoll, 0, dt * 2);
                 pg.targetPitch = THREE.MathUtils.lerp(pg.targetPitch, 0, dt * 2);
             }
+            let rollIn = pg.targetRoll, barIn = Math.max(0, pg.targetPitch), brakeIn = Math.max(0, -pg.targetPitch);
+            if (keys['KeyA']) rollIn = 1;
+            if (keys['KeyD']) rollIn = -1;
+            if (keys['KeyW']) barIn = 1;
+            if (keys['KeyS']) brakeIn = 1;
+            if (JOY.la) { rollIn = -JOY.lx; if (JOY.ly < 0) barIn = Math.max(barIn, -JOY.ly); else brakeIn = Math.max(brakeIn, JOY.ly); }
+            // DESCENSO RÁPIDO, como en un ala real:
+            //  · OREJAS (Q): se pliegan las puntas → −3,5 m/s, casi la misma velocidad, giro más lento
+            //  · BARRENA ESPIRAL (X, con A/D para el lado): alabeo extremo → −10 a −14 m/s; se sale soltando, de a poco
+            const earsIn = keys['KeyQ'] || JOY.ears, spiralIn = keys['KeyX'] || JOY.spiral;
+            PGX.ears += ((earsIn ? 1 : 0) - PGX.ears) * Math.min(1, dt * 1.3);
+            if (spiralIn && Math.abs(rollIn) > 0.2) PGX.spDir = Math.sign(rollIn);
+            PGX.spiral += ((spiralIn && !PGX.stall ? 1 : 0) - PGX.spiral) * Math.min(1, dt * (spiralIn ? 0.45 : 0.7));
 
-            let finalRoll = pg.targetRoll;
-            let finalPitch = pg.targetPitch;
-            if (keys['KeyA']) finalRoll = 1;
-            if (keys['KeyD']) finalRoll = -1;
-            if (keys['KeyW']) finalPitch = 1;
-            if (keys['KeyS']) finalPitch = -0.5;
+            const P = camera.position, t = performance.now() / 1000;
+            airUpdate(dt, P);
+            const groundY = Math.max(SEA_LEVEL, noise.get(P.x, P.z));
+            const agl = P.y - groundY;
 
-            pg.rollAngle  = THREE.MathUtils.lerp(pg.rollAngle,  finalRoll * 0.4,  dt * 2);
-            pg.pitchAngle = THREE.MathUtils.lerp(pg.pitchAngle, finalPitch * 0.3, dt * 2);
+            // --- ala ---
+            PGX.brake += (THREE.MathUtils.clamp(brakeIn, 0, 1) - PGX.brake) * Math.min(1, dt * 2.5);
+            PGX.bar   += (THREE.MathUtils.clamp(barIn, 0, 1) * (1 - PGX.brake) - PGX.bar) * Math.min(1, dt * 2.0);
+            let bankT = THREE.MathUtils.clamp(rollIn, -1, 1) * 0.72 * (1 - PGX.stall) * (1 - 0.45 * PGX.ears);
+            bankT = THREE.MathUtils.lerp(bankT, (PGX.spDir || 1) * 1.22, PGX.spiral);
+            PGX.bank += (bankT - PGX.bank) * Math.min(1, dt * 1.5);
+            if (PGX.brake > 0.93) PGX.stallT += dt; else PGX.stallT = Math.max(0, PGX.stallT - dt * 2);
+            if (PGX.stallT > 1.3 && !PGX.stall) { PGX.stall = 1; pkMood && pkMood('¡Pérdida! Suelta los frenos'); }
+            if (PGX.stall && PGX.brake < 0.45) { PGX.stall = Math.max(0, PGX.stall - dt * 0.7); if (PGX.stall === 0) PGX.pitchVel -= 0.9; }   // recuperación: abatida
+            // recogida: en los últimos metros el piloto frena a fondo y el ala flota
+            const flare = PGX.launchT > 0 || PGX.spiral > 0.3 ? 0 : 1 - smoothstep(2.2, 7, agl);
+            const Vt = PGX.stall ? 4 : 10.5 + 3.6 * PGX.bar - 3.6 * PGX.brake - 0.8 * PGX.ears + 5.5 * PGX.spiral - 4.5 * flare;
+            const dV = Vt - PGX.V;
+            PGX.V += dV * Math.min(1, dt * 1.1);
+            // péndulo: el piloto bajo la vela se balancea al cambiar de velocidad
+            PGX.pitchVel += (-PGX.pitchOsc * 5.5 - PGX.pitchVel * 1.6 + dV * 0.12) * dt;
+            PGX.pitchOsc += PGX.pitchVel * dt;
 
-            cameraRotY += pg.rollAngle * pg.turnSpeed * dt;
-            camera.rotation.z = pg.rollAngle * 0.8;
+            const turb = AIR.turb;
+            const tb = turb * (Math.sin(t * 7.3) * 0.6 + Math.sin(t * 13.1 + 1.7) * 0.4);
+            const bank = PGX.bank + tb * 0.10 + (PGX.stall ? Math.sin(t * 3.1) * 0.35 * PGX.stall : 0);
+            const load = 1 / Math.max(0.35, Math.cos(Math.min(Math.abs(bank), 0.8)));
+            const sinkPolar = 1.1 + 0.055 * Math.pow(PGX.V - 9.5, 2);
+            let sink = PGX.stall ? THREE.MathUtils.lerp(sinkPolar, 5.8, PGX.stall) : sinkPolar * Math.pow(load, 1.5);
+            sink += 2.4 * PGX.ears;
+            sink = THREE.MathUtils.lerp(sink, 3 + 11 * PGX.spiral, smoothstep(0.15, 0.9, PGX.spiral));
+            sink *= 1 - 0.6 * flare;
+            const omega = 9.81 * Math.tan(bank) / Math.max(5, PGX.V);
+            cameraRotY += omega * dt;
 
-            // SIGNO DEL CABECEO (bug de la v6):
-            // pitchAngle positivo = picada (más velocidad, más caída), pero la cámara
-            // apuntaba hacia ARRIBA. El piloto arrastraba el mouse hacia arriba creyendo
-            // que subía y en realidad estaba picando: por eso las ascendencias "no
-            // levantaban" en shift+mouse. Ahora frenar mira arriba y picar mira abajo.
-            const totalPitch = THREE.MathUtils.clamp(-pg.pitchAngle + cameraRotX, -Math.PI/2, Math.PI/2);
+            // --- aire ---
+            const A = airAt(P.x, P.y, P.z, groundY, t);
+            const vz = -sink + A.w;
+            const U = windAt(agl);
+            const hx = -Math.sin(cameraRotY), hz = -Math.cos(cameraRotY);
+            pg.velocity.set(hx * PGX.V + pg.windDir.x * U, vz, hz * PGX.V + pg.windDir.z * U);
+            P.addScaledVector(pg.velocity, dt);
+
+            // --- cámara del piloto ---
+            pg.rollAngle = bank;                                      // lo usan el avatar y la vela
+            const rollT = CAM_STABLE ? THREE.MathUtils.clamp(bank * 0.12, -0.12, 0.12) : THREE.MathUtils.clamp(bank * 0.85, -0.75, 0.75) + tb * 0.04;
+            camera.rotation.z += (rollT - camera.rotation.z) * Math.min(1, dt * (CAM_STABLE ? 1.5 : 8));
+            const totalPitch = THREE.MathUtils.clamp(cameraRotX - PGX.pitchOsc * (CAM_STABLE ? 0.2 : 0.9) + (CAM_STABLE ? 0 : tb * 0.03), -Math.PI / 2, Math.PI / 2);
             camera.rotation.x = THREE.MathUtils.lerp(camera.rotation.x, totalPitch, dt * 6);
             camera.rotation.y = cameraRotY;
 
-            const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0,1,0), cameraRotY);
-            const currentSpeed = pg.speed + (pg.pitchAngle * 12);
-            const currentSink  = pg.sinkRate - (pg.pitchAngle * 2) - (Math.abs(pg.rollAngle) * 0.5);
-
-            pg.liftForce = 0;
-            let slopeState = "—";
-
-            const groundY = Math.max(SEA_LEVEL, noise.get(camera.position.x, camera.position.z));   // CARTÓGRAFO: sobre el mar, el piso es el agua
-            const agl = camera.position.y - groundY;
-
-            // LIFT DE LADERA — se mide en la posición ACTUAL, no "más adelante".
-            // Antes usaba un punto proyectado como anticipo, pero eso hacía que la
-            // ascendencia llegara débil y tarde ("casi no se elevó"): el piloto ya
-            // había cruzado la zona de lift antes de que el efecto se sintiera de
-            // verdad. La física real de ladera depende de DÓNDE ESTÁS AHORA: si el
-            // viento pega contra la pendiente bajo tus pies, subes; ahí mismo, ya.
-            const normal = getTerrainNormal(camera.position.x, camera.position.z);
-            const nHoriz = new THREE.Vector3(normal.x, 0, normal.z);
-            const nHorizLen = nHoriz.length();
-            const slopeAngle = Math.acos(THREE.MathUtils.clamp(normal.y, -1, 1)); // 0=llano, PI/2=vertical
-
-            if (nHorizLen > 0.02 && slopeAngle > 0.06) {
-                nHoriz.normalize();
-                // windAlign > 0: el viento sopla HACIA la ladera (contra su normal) = barlovento.
-                // windAlign < 0: el viento sopla saliendo de la ladera = sotavento (rotor).
-                const windAlign = -pg.windDir.dot(nHoriz);
-                const slopeFactor = Math.sin(Math.min(slopeAngle, Math.PI / 2.1));
-
-                // Banda de altura: el lift de ladera es fuerte pegado al relieve y se
-                // apaga con una campana de Gauss al alejarte verticalmente de él —
-                // ni rasando el suelo (ahí hay más bien turbulencia) ni muy arriba.
-                const band = Math.exp(-Math.pow(Math.max(0, agl - 15) / LIFT_BAND_HEIGHT, 2));
-
-                if (windAlign > 0.1) {
-                    pg.liftForce += pg.windStrength * slopeFactor * windAlign * SLOPE_LIFT_K * band;
-                    slopeState = "barlovento ↑";
-                } else if (windAlign < -0.1) {
-                    pg.liftForce -= pg.windStrength * slopeFactor * Math.abs(windAlign) * LEE_SINK_K * band;
-                    slopeState = "sotavento ↓ (rotor)";
-                }
+            // --- despegue en carrera / aterrizaje ---
+            const gNow = Math.max(SEA_LEVEL, noise.get(P.x, P.z));
+            if (PGX.launchT > 0) {
+                PGX.launchT -= dt;
+                if (P.y < gNow + 1.7) { P.y = gNow + 1.7; PGX.V = Math.min(PGX.V + dt * 2.5, 10.5); }
+                if (PGX.launchT <= 0 && P.y - gNow < 1.8) { pkToast && pkToast('Despegue abortado', 'Faltó pendiente o viento de frente. Busca una ladera más empinada.', '#f59e0b'); enterWalk(); return; }
+            } else if (P.y < gNow + 1.7) {
+                P.y = gNow + 1.7;
+                const gs = Math.hypot(pg.velocity.x, pg.velocity.z), hit = Math.max(-vz, 0);
+                const water = gNow <= SEA_LEVEL + 0.01;
+                const [tt, tx, col] = water ? ['Amerizaje', 'Estás nadando. Busca la orilla y sube un cerro para volver a volar.', '#5ce6ff']
+                    : (hit > 4.2 || gs > 14) ? ['Aterrizaje duro', 'Pikitipu rebota. Camina hasta una ladera para despegar de nuevo.', '#f87171']
+                    : ['Aterrizaje', 'A pie. Sube un cerro y despega de cara al viento (T).', '#63f5a1'];
+                pkToast && pkToast(tt, tx, col);
+                if (!water && hit > 4.2 && AV.piki) AV.piki.squish = .26;
+                if (water) { enterWalk(); return; }
+                // carrera de salida: se corre unos pasos en la dirección de avance mientras la vela cae detrás
+                LAND.on = true; LAND.t = 0; LAND.k = 0; LAND.step = 0;
+                LAND.v = Math.min(gs, 9); LAND.dur = hit > 4.2 ? 1.1 : 1.4 + Math.min(1, gs / 9) * 0.8;
+                LAND.dx = gs > 0.1 ? pg.velocity.x / gs : -Math.sin(cameraRotY); LAND.dz = gs > 0.1 ? pg.velocity.z / gs : -Math.cos(cameraRotY);
+                PGX.vz = 0; return;
             }
 
-            // TÉRMICAS — dependen del sol, no de un punto proyectado. Ladera expuesta
-            // al sol y sin agua/bosque encima (roca o tierra descubierta) = columna
-            // de aire caliente. De noche desaparecen del todo.
-            if (sunElevation > 0.04 && groundY > SEA_LEVEL + 4) {
-                const exposure = 1.0 - Math.min(1, Math.abs(normal.y - 0.72) * 2.2);
-                const thermalBand = Math.exp(-Math.pow(agl / 260, 2)) ; // más ancha que el lift de ladera
-                const thermal = THERMAL_STRENGTH * thermalMultiplier * sunElevation * Math.max(0, exposure) * thermalBand;
-                if (thermal > 0.12) {
-                    pg.liftForce += thermal;
-                    if (slopeState === "—") slopeState = "térmica ☀";
-                }
-            }
-
-            // CORRIENTES AMBIENTALES — la "plaga" de burbujas de aire subiendo y
-            // bajando por todo el mapa, no solo en laderas: le da textura y vida al
-            // cielo entero, como el aire real nunca está perfectamente quieto.
-            const ambient = ambientAirField(camera.position.x, camera.position.z, dayTime) * AMBIENT_DRAFT * ambientWindMultiplier;
-            pg.liftForce += ambient;
-            if (slopeState === "—" && Math.abs(ambient) > 0.4) {
-                slopeState = ambient > 0 ? "corriente ↑" : "corriente ↓";
-            }
-
-            // ANTICOLISIÓN — si el relieve JUSTO ADELANTE sube más rápido de lo que
-            // el ala puede trepar, se agrega compresión de aire extra antes del
-            // impacto (así se siente realmente la ladera empujándote hacia arriba
-            // en el último tramo, en vez de estrellarte en línea recta — "choca
-            // directamente con las montañas sin alcanzar a subir antes").
-            const nearAhead = camera.position.clone().addScaledVector(forward, COLLISION_LOOKAHEAD);
-            const nearAheadY = noise.get(nearAhead.x, nearAhead.z);
-            const clearance = camera.position.y - nearAheadY;
-            if (clearance < 20) {
-                const urgency = THREE.MathUtils.clamp((20 - clearance) / 20, 0, 1);
-                pg.liftForce += urgency * urgency * pg.windStrength * COLLISION_LIFT_K * 10;
-                if (urgency > 0.5) slopeState = "compresión ↑ (relieve)";
-            }
-
-            // Efecto suelo muy pegado al terreno
-            if (agl < 25 && agl > -10) {
-                pg.liftForce += (25 - agl) * 0.4;
-            }
-
-            pg.liftForce = THREE.MathUtils.clamp(pg.liftForce, MAX_SINK_AIR, MAX_LIFT);
-
-            const verticalVelocity = currentSink + pg.liftForce;
-            pg.velocity.copy(forward).multiplyScalar(currentSpeed);
-            pg.velocity.y = verticalVelocity;
-            pg.velocity.addScaledVector(pg.windDir, pg.windStrength * 0.2);
-
-            camera.position.addScaledVector(pg.velocity, dt);
-
-            if (camera.position.y < groundY + 2) {
-                camera.position.y = groundY + 2;
-                pg.velocity.y = 0;
-                pg.velocity.x *= 0.9; pg.velocity.z *= 0.9;
-                if (currentSpeed < 2) toggleParagliderMode();
-            }
-
-            document.getElementById('inst-spd').innerText = Math.max(0, currentSpeed * 3.6).toFixed(0);
-            document.getElementById('inst-alt').innerText = camera.position.y.toFixed(0);
+            // --- instrumentos ---
+            PGX.vz += (vz - PGX.vz) * Math.min(1, dt * 3);
+            varioSound(PGX.vz, dt);
+            const gsKmh = Math.hypot(pg.velocity.x, pg.velocity.z) * 3.6;
+            document.getElementById('inst-spd').innerText = gsKmh.toFixed(0);
+            document.getElementById('inst-alt').innerText = P.y.toFixed(0);
             const varioEl = document.getElementById('inst-var');
-            varioEl.innerText = (verticalVelocity > 0 ? "+" : "") + verticalVelocity.toFixed(1);
-            varioEl.className = "instrument-value " + (verticalVelocity > 0.5 ? 'vario-positive' : (verticalVelocity < -1.5 ? 'vario-negative' : ''));
-            document.getElementById('inst-wind').innerText = `AGL ${Math.max(0, agl).toFixed(0)} m · ladera ${slopeState}`;
+            varioEl.innerText = (PGX.vz > 0 ? "+" : "") + PGX.vz.toFixed(1);
+            varioEl.className = "instrument-value " + (PGX.vz > 0.3 ? 'vario-positive' : (PGX.vz < -1.8 ? 'vario-negative' : ''));
+            const state = PGX.stall ? 'PÉRDIDA' : PGX.spiral > 0.3 ? 'BARRENA ESPIRAL' : PGX.ears > 0.3 ? 'OREJAS' : A.label;
+            document.getElementById('inst-wind').innerHTML =
+                `AGL ${Math.max(0, agl).toFixed(0)} m · aire ${(PGX.V * 3.6).toFixed(0)} km/h · viento ${U.toFixed(1)} m/s <span class="wneedle" style="transform:rotate(${windArrowDeg()}deg)"></span><br>${state}`;
+            const mi = document.getElementById('mob-inst');
+            if (mi) mi.textContent = `${gsKmh.toFixed(0)} km/h · ${P.y.toFixed(0)} m · ${PGX.vz > 0 ? '+' : ''}${PGX.vz.toFixed(1)} m/s · ${state}`;
 
-            updateWindVFX(dt, verticalVelocity);
+            updateWindVFX(dt, PGX.vz);
         }
 
         function updateWindVFX(dt, vario) {
@@ -2668,7 +2757,8 @@
             if (TE.open) {
                 // abre con el dibujo que estás sobrevolando
                 const isl = birdIsland(camera.position.x, camera.position.z);
-                teSelect(isl ? isl.d : (TE.d || TINTA.drawings[0]));
+                const pick = [isl && isl.d, TE.d, ...TINTA.drawings].find(x => x && x.cfg);
+                if (pick) teSelect(pick); else teInfo('Los dibujos aún se están preparando; vuelve a abrir el editor en unos segundos.');
             }
         }
         function teSelect(d) {
@@ -2688,7 +2778,7 @@
                     <input type="number" data-k="${kind}" data-i="${i}" data-f="h" value="${arr[i][0]}" step="5">
                     <span>${kind === 'sea' ? 'm bajo el mar' : 'm'}</span>
                     <input type="color" data-k="${kind}" data-i="${i}" data-f="c" value="${arr[i][1]}">
-                    <button data-k="${kind}" data-i="${i}" data-f="x" title="quitar">×</button>
+                    <button data-k="${kind}" data-i="${i}" data-f="x" title="quitar" style="font-size:9px;letter-spacing:.1em">QUITAR</button>
                 </div>`;
             document.getElementById('te-stops').innerHTML = c.land.map((_, i) => row(c.land, i, 'land')).join('');
             document.getElementById('te-sea-stops').innerHTML = c.sea.map((_, i) => row(c.sea, i, 'sea')).join('');
@@ -2934,7 +3024,8 @@
 
             // --- el mundo se adapta a la altura de la mirada ---
             const eDist = (bird > eg ? 0 : eg * VIEW.eR);
-            VIEW_DISTANCE = bird > 0.4 ? 15 : THREE.MathUtils.clamp(Math.ceil(eDist * 1.25 / CHUNK_SIZE), 10, 16);
+            const vdBase = IS_MOBILE ? 7 : 10;
+            VIEW_DISTANCE = bird > 0.4 ? vdBase + 5 : THREE.MathUtils.clamp(Math.ceil(eDist * 1.25 / CHUNK_SIZE), vdBase, vdBase + 6);
             const eFar = Math.hypot(eDist, (VIEW_DISTANCE + 0.4) * CHUNK_SIZE);
             // el borde de lo cargado se funde con el mar (antes se veía escalonado)
             // HORIZONTE: la neblina empieza lejos y el anillo lejano del mundo da profundidad
@@ -2953,6 +3044,7 @@
 
             // El avatar (Pikitipu en su vela, o Hakuryū) ES el marcador; ecosistema y KP, cuadro a cuadro
             kpEcoFrame(dt, P, yaw, adapt, camH, b, eg);
+            curFrame(dt, P, adapt);
 
             // desde el cielo, más allá de lo cargado hay mar abierto, no cielo
             if (adapt > 0.001 && scene.background) {
@@ -2961,6 +3053,7 @@
             }
 
             camera.position.copy(_vs.eye); camera.quaternion.copy(_vs.q);
+            if (PET.check) petRaycast();
             renderer.render(scene, camera);
             camera.position.copy(P); camera.quaternion.copy(_vs.quat);   // de vuelta al piloto
 
@@ -3069,7 +3162,7 @@
             // norte, escala y leyenda
             g.textAlign = 'left';
             g.fillStyle = 'rgba(0,0,0,0.6)'; g.fillRect(size - 44, 10, 34, 40);
-            g.fillStyle = '#fff'; g.font = '700 14px monospace'; g.fillText('N', size - 32, 26); g.fillText('↑', size - 32, 44);
+            g.fillStyle = '#fff'; g.font = '700 14px monospace'; g.fillText('N', size - 32, 26); g.fillRect(size - 28, 32, 2, 14);
             const km = 1000 / span * size, sb = km >= 60 ? km : km * 5, sl = km >= 60 ? '1 km' : '5 km';
             g.fillStyle = 'rgba(0,0,0,0.6)'; g.fillRect(10, size - 40, sb + 20, 30);
             g.fillStyle = '#fff'; g.fillRect(20, size - 22, sb, 4); g.font = '11px monospace'; g.fillText(sl, 20, size - 26);
@@ -3089,6 +3182,33 @@
             pilotModel = buildPilotModel(); scene.add(pilotModel);
             kpEcoInit();   // Pikitipu en la vela, Hakuryū, ecosistema y conexión a KP
             funkInit();    // el groove arranca con tu primer gesto; ■ / N lo apagan
+            window.addEventListener('keydown', e => {
+                if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) || e.repeat) return;
+                if (e.code === 'KeyT') modeKeyT();
+                if (e.code === 'KeyC') modeKeyC();
+                if (e.code === 'KeyB') { VARIO.on = !VARIO.on; pkMood(VARIO.on ? 'Vario sonoro activado' : 'Vario en silencio'); }
+            });
+            mobileInit();
+            setModeUI('free');
+            curInit();
+            const cc = document.getElementById('cfg-corrientes'); cc.checked = CUR.on; curSet(CUR.on);
+            cc.addEventListener('change', e => curSet(e.target.checked));
+            const ce = document.getElementById('cfg-estable'); ce.checked = CAM_STABLE;
+            ce.addEventListener('change', e => { CAM_STABLE = e.target.checked; try { localStorage.setItem('aerocosmos.estable', CAM_STABLE ? 'on' : 'off'); } catch (_) {} });
+            // panel de Pikitipu: minimizable (se recuerda); en celular parte minimizado
+            const ph = document.getElementById('piki-hud');
+            let phMin = IS_MOBILE; try { const v = localStorage.getItem('aerocosmos.pikihud'); if (v) phMin = v === 'min'; } catch (_) {}
+            const phSet = m => { ph.classList.toggle('min', m); document.getElementById('ph-tog').textContent = m ? 'ver' : 'ocultar'; try { localStorage.setItem('aerocosmos.pikihud', m ? 'min' : 'open'); } catch (_) {} };
+            phSet(phMin);
+            ph.querySelector('.ph-head').addEventListener('click', e => { e.stopPropagation(); phSet(!ph.classList.contains('min')); });
+            // paneles de información y de teclas: también minimizables y recordados
+            [['.ui-overlay', 'info-tog', 'aerocosmos.info', 'ocultar información', 'ver información'],
+             ['#controls', 'keys-tog', 'aerocosmos.teclas', 'ocultar', 'ver']].forEach(([sel, tog, key, on, off]) => {
+                const el = document.querySelector(sel), tg = document.getElementById(tog);
+                const set = m => { el.classList.toggle('min', m); tg.textContent = m ? off : on; try { localStorage.setItem(key, m ? 'min' : 'open'); } catch (_) {} };
+                let m0 = false; try { m0 = localStorage.getItem(key) === 'min'; } catch (_) {}
+                set(m0); tg.addEventListener('click', e => { e.stopPropagation(); set(!el.classList.contains('min')); uiWake(); });
+            });
             VIEW.focusX = camera.position.x; VIEW.focusZ = camera.position.z;
 
             // Rueda: subir = acercarse (hacia 1ª persona) · bajar = alejarse (hacia vista de ave)
@@ -3457,6 +3577,20 @@ void main(){
             flapWings() { PK.dragonEnergy = Math.min(100, PK.dragonEnergy + 2); this._wflap = 1.2; PK.love = Math.min(100, PK.love + 5); }
         }
 
+        // ---------- caricias con el puntero (como en Pikitipu: mantener el clic sobre él) ----------
+        const PET = { ptr: false, check: false, ndc: new THREE.Vector2(), ray: new THREE.Raycaster(), msgT: 0 };
+        function petPointerDown(target, x, y) {
+            if (!renderer || target !== renderer.domElement || MAP.open || !AV.root || !AV.root.visible) return;
+            PET.ndc.set(x / window.innerWidth * 2 - 1, -(y / window.innerHeight) * 2 + 1); PET.check = true;
+        }
+        function petPointerUp() { PET.ptr = false; PET.check = false; }
+        function petRaycast() {
+            PET.check = false; if (!isMouseDown) return;
+            camera.updateMatrixWorld(); PET.ray.setFromCamera(PET.ndc, camera);
+            const objs = PK.form === 'dragon' ? (AV.dragon.holder.visible ? [AV.dragon.g] : []) : (AV.pikiHolder.visible ? [AV.piki.body] : []);
+            if (objs.length && PET.ray.intersectObjects(objs, true).length) PET.ptr = true;
+        }
+
         // ---------- avatar en el mundo ----------
         const AV = { root: null, wing: null, piki: null, pikiHolder: null, dragon: null, hearts: [], t: 0 };
         const PIKI_SCALE = 0.55, DRAGON_SCALE = 1.25;
@@ -3523,7 +3657,7 @@ void main(){
                 // OFRENDA: al azar árbol / nube / bandada / cardumen; la categoría decide el ser, la presión su tamaño
                 const cat = /^[ABC]$/.test(m.priority) ? m.priority : 'B';
                 const of = ofSpawn(cat, days);
-                const ofTxt = of ? `Brotó ${OF_NAMES[of.k][cat]} (${cat})${days ? ` · ${days} días de presión → ×${of.p.toFixed(1)}` : ''}` : '';
+                const ofTxt = of ? `Brotó ${OF_NAMES[of.k][cat]} (${cat})${days ? ` · ${days} días de presión, tamaño ${of.p.toFixed(1)} veces` : ''}` : '';
                 pkToast('Pendiente lograda', `${m.task_name || ''}${pv ? ' · +' + pv + ' Pv' : ''}${ofTxt ? '<br>' + ofTxt : ''}`, PK.lastUserColor);
                 setTimeout(leerKPEgg, 2500);
             },
@@ -3692,6 +3826,7 @@ void main(){
             const all = ECO.flocks.concat(ECO.burst);
             for (const f of all) {
                 f.age += dt; f.ph += f.w * dt;
+                if (!f.offering && !f.burst) airBirdThermal(f, dt);
                 if (f.burst) { f.r = Math.min(160, f.r + dt * 18); f.ay += dt * 9 * f.climb; }
                 const cx = f.ax + Math.cos(f.ph) * f.r, cz = f.az + Math.sin(f.ph) * f.r;
                 const heading = Math.atan2(-Math.sin(f.ph) * f.w, Math.cos(f.ph) * f.w);
@@ -3713,16 +3848,20 @@ void main(){
 
         // ---------- conexión con KP ----------
         const KP = { http: 'http://127.0.0.1:5000', local: 'ws://127.0.0.1:8765', relay: 'wss://musicosmosonline.com',
-                     ch: { local: null, relay: null }, retry: { local: false, relay: false }, src: null, seen: new Set(), seq: null, egg: false };
+                     ch: { local: null, relay: null }, retry: { local: false, relay: false }, src: null, seen: new Set(), seq: null, egg: false,
+                     recv: 0, last: '', ports: {} };
         function kpStatus(online, src) {
             PK.kpOnline = online; KP.src = src;
             const dot = document.getElementById('ph-kp'), lbl = document.getElementById('ph-kp-lbl');
             if (dot) dot.classList.toggle('on', online);
-            if (lbl) lbl.textContent = online ? (src === 'relay' ? 'KP por relay' : src === 'http' ? 'KP conectado (respaldo)' : 'KP local conectado') : 'KP desconectado · Pikitipu sigue su ritmo';
+            if (lbl) lbl.textContent = online ? (src === 'relay' ? 'KP por relay' : src === 'http' ? 'KP conectado (respaldo)' : 'KP local conectado')
+                + (KP.recv ? ` · ${KP.recv} ${KP.recv === 1 ? 'tarea recibida' : 'tareas recibidas'}` : ' · esperando tareas') : 'KP desconectado · Pikitipu sigue su ritmo';
         }
         function kpDispatch(m) {
             const key = m.event_id || (m.timestamp ? `${m.type}|${m.timestamp}|${m.user || ''}` : null);
             if (key) { if (KP.seen.has(key)) return; KP.seen.add(key); if (KP.seen.size > 600) KP.seen.clear(); }
+            console.log('[KP] evento recibido:', m.type, m.task_name || '');
+            if (m.type === 'TASK_COMPLETE') { KP.recv++; kpStatus(PK.kpOnline, KP.src); }
             const fn = PK_ON[m.type || '']; if (fn && AV.piki) { try { fn(m); } catch (e) { console.warn('[KP]', m.type, e); } }
         }
         function kpCanal(src, url, waitMs) {
@@ -3739,16 +3878,24 @@ void main(){
         async function kpPost(path, body) {
             try { const r = await fetch(KP.http + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); return await r.json(); } catch (_) { return null; }
         }
-        let kpEventWait = 2000;
-        async function kpEventos() {
+        // Respaldo HTTP: cada sesión de KP guarda sus pulsos en su propio puerto (5000, 5001…).
+        // Solo la primera emite por el WebSocket :8765, así que se escuchan todas.
+        function kpEventos() { [5000, 5001, 5002, 5003].forEach(kpEventosPuerto); }
+        async function kpEventosPuerto(port) {
+            const st = KP.ports[port] || (KP.ports[port] = { seq: null, ok: false });
+            let wait = 2000;
             try {
-                const r = await fetch(`${KP.http}/api/eventos?desde=${KP.seq ?? 0}`, { cache: 'no-store' });
+                const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), 2500);
+                const r = await fetch(`http://127.0.0.1:${port}/api/eventos?desde=${st.seq ?? 0}`, { cache: 'no-store', signal: ctl.signal }); clearTimeout(to);
                 const d = await r.json();
-                if (KP.seq === null) KP.seq = d.ultimo; else { d.eventos.forEach(e => kpDispatch(e)); KP.seq = d.ultimo; }
-                kpEventWait = 2000;
+                if (st.seq === null) st.seq = d.ultimo; else { d.eventos.forEach(e => kpDispatch(e)); st.seq = d.ultimo; }
+                st.ok = true;
                 if (!KP.ch.local && !KP.ch.relay) kpStatus(true, 'http');
-            } catch (_) { kpEventWait = 10000; if (!KP.ch.local && !KP.ch.relay) kpStatus(false, null); }
-            setTimeout(kpEventos, kpEventWait);
+            } catch (_) {
+                st.ok = false; wait = port === 5000 ? 10000 : 20000;
+                if (!KP.ch.local && !KP.ch.relay && !Object.values(KP.ports).some(p => p.ok)) kpStatus(false, null);
+            }
+            setTimeout(() => kpEventosPuerto(port), wait);
         }
         function kpFecha(s) {
             if (!s || typeof s !== 'string') return null;
@@ -3805,8 +3952,8 @@ void main(){
             hzInit(); ofInit();
             document.getElementById('ph-evo').addEventListener('click', pkEvolve);
             document.getElementById('ph-ret').addEventListener('click', pkReturn);
-            window.addEventListener('keydown', e => { if (e.code === 'KeyH' && !/INPUT|SELECT/.test(e.target.tagName)) PK.petting = true; });
-            window.addEventListener('keyup', e => { if (e.code === 'KeyH') PK.petting = false; });
+            window.addEventListener('keydown', e => { if (e.code === 'KeyH' && !/INPUT|SELECT/.test(e.target.tagName)) PK.petKey = true; });
+            window.addEventListener('keyup', e => { if (e.code === 'KeyH') PK.petKey = false; });
             kpStatus(false, null);
             kpCanal('local', KP.local, 4000); kpCanal('relay', KP.relay, 20000);
             setTimeout(kpEventos, 1000); setTimeout(leerKPEgg, 400); setInterval(leerKPEgg, 20000);
@@ -3815,6 +3962,8 @@ void main(){
 
         function kpEcoFrame(dt, P, yaw, adapt, camH, b, eg) {
             AV.t += dt; const t = AV.t;
+            PK.petting = !!(PK.petKey || PET.ptr);
+            PET.msgT = Math.max(0, PET.msgT - dt);
             // decaimiento y ánimo: con datos de KP siguen tu actividad real
             if (KP.egg) {
                 const k = Math.min(1, dt * .04);
@@ -3823,8 +3972,17 @@ void main(){
             } else if (!PK.petting && !PK.timerActive) { PK.happiness = Math.max(0, PK.happiness - .2 * dt); PK.energy = Math.max(0, PK.energy - .05 * dt); }
             PK.bond = Math.max(0, PK.bond - .04 * dt);
             if (PK.petting) {   // H: acariciar
-                if (PK.form === 'dragon') { PK.dragonEnergy = Math.min(100, PK.dragonEnergy + 9 * dt); PK.love = Math.min(100, PK.love + 6 * dt); PK.bond = Math.min(100, PK.bond + 5 * dt); }
-                else { PK.happiness = Math.min(100, PK.happiness + 32 * dt); PK.bond = Math.min(100, PK.bond + 14 * dt); PK.love = Math.min(100, PK.love + 10 * dt); AV.piki.squish = Math.min(.26, AV.piki.squish + dt * 4.5); }
+                if (PK.form === 'dragon') {   // la llama sube, el vínculo crece y Hakuryū te reconoce
+                    PK.dragonEnergy = Math.min(100, PK.dragonEnergy + 9 * dt); PK.love = Math.min(100, PK.love + 6 * dt);
+                    PK.bond = Math.min(100, PK.bond + 5 * dt); PK.happiness = Math.min(100, PK.happiness + 8 * dt);
+                    if (Math.random() < dt * .8) AV.dragon.flapWings();
+                    PK_U.flashCol.value.set(0xffd27a); PK_U.flashInt.value = Math.max(PK_U.flashInt.value, .18);
+                    if (!PET.msgT) { pkMood('Hakuryū ronronea'); PET.msgT = 4; }
+                } else {
+                    PK.happiness = Math.min(100, PK.happiness + 32 * dt); PK.bond = Math.min(100, PK.bond + 14 * dt); PK.love = Math.min(100, PK.love + 10 * dt);
+                    AV.piki.squish = Math.min(.26, AV.piki.squish + dt * 4.5);
+                    if (!PET.msgT) { pkMood(PK.happiness > 80 ? 'Pikitipu se derrite de alegría' : 'Pikitipu se pone contento'); PET.msgT = 4; }
+                }
                 if (Math.random() < dt * 3.5) avSpawnHearts(1);
             }
             if (PK.form === 'dragon' && PK.evoPhase === 'dragon' && !PK.petting) {
@@ -3841,7 +3999,9 @@ void main(){
             pkEvoUpdate(dt);
             // la vela existe solo en modo parapente; si no, Pikitipu flota y respira en el aire
             AV.wing.visible = isParagliding && AV.pikiHolder.visible && (PK.evoPhase !== 'materialize' || PK.evoTimer < 1.0);
-            AV.pikiHolder.position.y = isParagliding ? 0 : 0.6;
+            AV.pikiHolder.position.y = isParagliding ? (LAND.on ? 1.15 * smoothstep(0, 0.6, LAND.k) : 0) : isWalking ? 1.15 + WALK.hop : 0.6;
+            const wk = LAND.on ? smoothstep(0.05, 1, LAND.k) : 0;              // la vela pierde presión y cae hacia atrás
+            AV.wing.position.set(0, -2.6 * wk, 5.5 * wk); AV.wing.rotation.x = -1.35 * wk;
 
             // el avatar en el mundo
             AV.root.visible = b < 1.85 || eg > 0.01;
@@ -4174,7 +4334,7 @@ void main(){
         function funkToggle() { isAudioPlaying ? funkStop() : funkStart(); }
         function funkUI() {
             const b = document.getElementById('btn-funk'), c = document.getElementById('btn-start-core');
-            if (b) { b.classList.toggle('active-btn', isAudioPlaying); b.textContent = isAudioPlaying ? '■' : '▶'; b.title = isAudioPlaying ? 'Apagar groove funk (N)' : 'Encender groove funk (N)'; }
+            if (b) { b.classList.toggle('active-btn', isAudioPlaying); b.title = isAudioPlaying ? 'Apagar groove funk (N)' : 'Encender groove funk (N)'; }
             if (c) c.textContent = isAudioPlaying ? 'Detener groove' : 'Iniciar groove';
             const mc = document.getElementById('music-controls'); if (mc && isAudioPlaying) mc.style.display = 'block';
         }
@@ -4192,6 +4352,500 @@ void main(){
             funkUI();
         }
 
+        // =====================================================================
+        // AIRE VIVO — viento, ladera, rotor, térmicas con ciclo de vida
+        // =====================================================================
+        const PGX = { ears: 0, spiral: 0, spDir: 1, V: 10.5, bank: 0, brake: 0, bar: 0, stall: 0, stallT: 0, pitchOsc: 0, pitchVel: 0, vz: 0, launchT: 0 };
+        const AIR = { thermals: [], gust: 1, turb: 0, yaw0: Math.atan2(pg.windDir.z, pg.windDir.x), cuMesh: null, t: 0, seedT: 0 };
+        const THERMAL_MAX = 16;
+
+        // velocidad del viento según la altura sobre el suelo (gradiente logarítmico) y rachas
+        function windAt(agl) {
+            const h = Math.max(2, agl);
+            return pg.windStrength * Math.min(1.3, Math.log(h / 0.4) / Math.log(80 / 0.4)) * AIR.gust;
+        }
+        function windArrowDeg() {   // hacia dónde sopla el viento, relativo a tu rumbo (arriba = adelante)
+            const hx = -Math.sin(cameraRotY), hz = -Math.cos(cameraRotY), rx = Math.cos(cameraRotY), rz = -Math.sin(cameraRotY);
+            return Math.atan2(pg.windDir.x * rx + pg.windDir.z * rz, pg.windDir.x * hx + pg.windDir.z * hz) * 57.2958;
+        }
+        function sunDirXZ() {
+            const v = sunMesh.position.clone().sub(camera.position); v.y = 0;
+            return v.lengthSq() > 1 ? v.normalize() : new THREE.Vector3(0, 0, -1);
+        }
+        function airUpdate(dt, P) {
+            AIR.t += dt; const t = AIR.t;
+            // el viento gira lentamente durante el día y llega en rachas
+            const yaw = AIR.yaw0 + Math.sin(t * 0.011) * 0.35 + Math.sin(t * 0.029 + 2) * 0.12;
+            pg.windDir.set(Math.cos(yaw), 0, Math.sin(yaw));
+            AIR.gust = 1 + 0.16 * Math.sin(t * 0.8) * Math.sin(t * 0.21 + 1) + 0.08 * Math.sin(t * 2.6);
+            // térmicas: nacen en suelo caliente y expuesto, derivan con el viento, mueren
+            const sun = Math.max(0, sunElevation);
+            const want = sun > 0.05 ? Math.round(THERMAL_MAX * Math.min(1.5, thermalMultiplier) * Math.min(1, sun * 2.5)) : 0;
+            AIR.thermals = AIR.thermals.filter(th => th.age < th.life && Math.hypot(th.x - P.x, th.z - P.z) < 4500);
+            AIR.seedT -= dt;
+            if (AIR.thermals.length < want && AIR.seedT <= 0) { const th = thermalSeed(P); if (th) AIR.thermals.push(th); AIR.seedT = 0.4; }
+            const U = pg.windStrength * AIR.gust;
+            AIR.thermals.forEach(th => { th.age += dt; th.x += pg.windDir.x * U * 0.45 * dt; th.z += pg.windDir.z * U * 0.45 * dt; });
+            thermalClouds();
+        }
+        function thermalSeed(P) {
+            const sd = sunDirXZ(); let best = null, bs = -1;
+            for (let i = 0; i < 14; i++) {
+                // se siembran sobre todo a barlovento: derivan hacia ti
+                const a = Math.atan2(-pg.windDir.z, -pg.windDir.x) + (Math.random() - 0.5) * 3.6, d = 300 + Math.random() * 2800;
+                const x = P.x + Math.cos(a) * d, z = P.z + Math.sin(a) * d, g = noise.get(x, z);
+                if (g < SEA_LEVEL + 6) continue;
+                const n = getTerrainNormal(x, z);
+                const expo = Math.max(0, n.x * sd.x + n.z * sd.z) + n.y * 0.4;          // ladera mirando al sol
+                const relief = THREE.MathUtils.clamp((g - noise.get(x + 260, z) - noise.get(x - 260, z) + g) / 300 + 0.5, 0, 1); // lomas y cumbres disparan antes
+                const sc = expo * 0.7 + relief * 0.3 + Math.random() * 0.25;
+                if (sc > bs) { bs = sc; best = { x, z, g }; }
+            }
+            if (!best) return null;
+            const base = Math.max(best.g + 380, SEA_LEVEL + 800 + Math.max(0, sunElevation) * 900);   // base de nubes
+            return { ...best, w0: 1.6 + Math.random() * 2.8, R: 55 + Math.random() * 95, age: 0, life: 260 + Math.random() * 380, top: base, id: Math.random() };
+        }
+        function thermalEnv(th) { return Math.min(1, th.age / 55) * Math.min(1, Math.max(0, (th.life - th.age) / 90)); }
+        function thermalCenter(th, y, out) {   // la columna se inclina con el viento
+            const lean = (pg.windStrength / (th.w0 + 0.6)) * Math.max(0, y - th.g) * 0.22;
+            out.x = th.x + pg.windDir.x * lean; out.z = th.z + pg.windDir.z * lean; return out;
+        }
+        const _tc = { x: 0, z: 0 };
+        // velocidad vertical del aire en un punto (m/s) + etiqueta para el piloto
+        function airAt(x, y, z, groundY, t, probe) {
+            const U = windAt(y - groundY), wd = pg.windDir, sun = Math.max(0, sunElevation);
+            let w = 0, turb = 0.15, label = 'aire en calma', best = 0;
+            // 1) LADERA: el viento golpea la cara de la montaña y sube. Se busca la cara a sotavento tuyo
+            //    (vuelas delante de ella); la ascendencia vale ~U·sin(pendiente) y se apaga con la altura.
+            let ridge = 0;
+            for (const d of [0, 45, 95, 160]) {
+                const px = x + wd.x * d, pz = z + wd.z * d;
+                const h1 = noise.get(px - wd.x * 18, pz - wd.z * 18), h2 = noise.get(px + wd.x * 18, pz + wd.z * 18);
+                const grade = (h2 - h1) / 36; if (grade <= 0.05) continue;
+                const above = y - Math.max(h1, h2);
+                const v = U * (grade / Math.sqrt(1 + grade * grade)) * Math.exp(-Math.pow(Math.max(0, above) / 170, 2)) * (1 - d / 240);
+                if (v > ridge) ridge = v;
+            }
+            if (ridge > 0.2) { w += ridge * 1.15; label = `ladera +${ridge.toFixed(1)}`; best = ridge; }
+            // 2) ROTOR: detrás de una cresta (a sotavento) el aire cae y se enrosca
+            let crest = -1e9;
+            for (const d of [35, 80, 140, 220]) crest = Math.max(crest, noise.get(x - wd.x * d, z - wd.z * d));
+            const ridgeH = crest - groundY;
+            if (ridgeH > 35) {
+                const below = crest - y;                                  // >0: estás bajo la cresta, en su sombra
+                const lee = smoothstep(-50, 60, below) * Math.min(1, ridgeH / 120);
+                if (lee > 0.05) { w -= U * 0.6 * lee; turb += U * 0.22 * lee; if (lee > 0.3 && ridge < 0.5) label = 'rotor de sotavento'; }
+            }
+            // 3) TÉRMICAS: núcleo que sube, anillo que baja alrededor, más fuertes con sol alto
+            for (const th of AIR.thermals) {
+                if (y > th.top + 40) continue;
+                thermalCenter(th, y, _tc);
+                const r = Math.hypot(x - _tc.x, z - _tc.z); if (r > th.R * 3) continue;
+                const q = r / th.R, core = (1 - q * q) * Math.exp(-q * q);
+                const vf = smoothstep(0, 70, y - th.g) * (1 - smoothstep(th.top - 160, th.top, y));
+                const wt = th.w0 * thermalEnv(th) * (0.5 + sun) * thermalMultiplier * vf * (core > 0 ? core : core * 2.6);
+                w += wt; turb += Math.abs(wt) * 0.12 * (q > 0.6 && q < 1.6 ? 2 : 1);
+                if (wt > best && wt > 0.3) { best = wt; label = `térmica +${wt.toFixed(1)}`; }
+                else if (wt < -0.4 && best < 0.3) label = 'borde de térmica';
+            }
+            // 4) DESCENDENCIA de fondo (el aire que sube vuelve a bajar en algún lado) + burbujas ambientales
+            w += -0.35 * sun + ambientAirField(x, z, dayTime) * 0.5 * ambientWindMultiplier;
+            // 5) turbulencia mecánica cerca del suelo con viento
+            turb += U * 0.05 * Math.exp(-Math.max(0, y - groundY) / 60);
+            if (label === 'aire en calma' && w < -0.8) label = 'descendencia';
+            if (probe) return { w: THREE.MathUtils.clamp(w, -8, 9), label };
+            AIR.turb += (Math.min(2.5, turb) - AIR.turb) * 0.05;
+            return { w: THREE.MathUtils.clamp(w + AIR.turb * Math.sin(t * 5.3 + x * 0.01) * 0.35, -8, 9), label };
+        }
+        // cúmulo sobre cada térmica madura: el cielo te muestra dónde está la ascendencia
+        function thermalClouds() {
+            if (!AIR.cuMesh) {
+                const m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, transparent: true, opacity: 0.9, depthWrite: false });
+                m.onBeforeCompile = worldCurvatureShader.onBeforeCompile;
+                AIR.cuMesh = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), m, THERMAL_MAX * 2 * 12);
+                AIR.cuMesh.frustumCulled = false; AIR.cuMesh.count = 0; scene.add(AIR.cuMesh);
+            }
+            const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), V = new THREE.Vector3(), S = new THREE.Vector3();
+            let k = 0;
+            for (const th of AIR.thermals) {
+                const env = Math.min(1, th.age / 90) * Math.min(1, Math.max(0, (th.life - th.age) / 120));
+                if (env < 0.05) continue;
+                thermalCenter(th, th.top, _tc);
+                const size = (60 + th.w0 * 45) * env;
+                for (let i = 0; i < 12; i++) {
+                    const a = i * 2.39 + th.id * 10, rr = (i / 12) * size * 0.9;
+                    V.set(_tc.x + Math.cos(a) * rr, th.top + 30 + (i % 4) * size * 0.12 * env, _tc.z + Math.sin(a) * rr);
+                    const s = size * (0.55 - i * 0.025); S.set(s, s * 0.55, s);
+                    M.compose(V, Q, S); AIR.cuMesh.setMatrixAt(k++, M);
+                }
+            }
+            AIR.cuMesh.count = k; AIR.cuMesh.instanceMatrix.needsUpdate = true;
+            AIR.cuMesh.visible = !cloudsRoot || cloudsRoot.visible;
+        }
+        // las aves de fondo buscan térmicas y giran en ellas, como en la vida real
+        function airBirdThermal(f, dt) {
+            if (!AIR.thermals.length) return;
+            if (f.thId === undefined || !AIR.thermals.some(th => th.id === f.thId)) {
+                const th = AIR.thermals[Math.floor(Math.random() * AIR.thermals.length)]; f.thId = th.id;
+            }
+            const th = AIR.thermals.find(th => th.id === f.thId); if (!th || thermalEnv(th) < 0.3) return;
+            const y = Math.min(th.top - 60, th.g + 260); thermalCenter(th, y, _tc);
+            const k = Math.min(1, dt * 0.08);
+            f.ax += (_tc.x - f.ax) * k; f.az += (_tc.z - f.az) * k; f.ay += (y - f.ay) * k;
+        }
+
+        // ---------- vario sonoro: pitidos que se aceleran al subir, tono grave al caer ----------
+        const VARIO = { on: true, osc: null, gain: null, next: 0 };
+        function varioSound(vz) {
+            if (!audioCtx || audioCtx.state !== 'running') return;
+            if (!VARIO.osc) {
+                VARIO.osc = audioCtx.createOscillator(); VARIO.gain = audioCtx.createGain();
+                VARIO.osc.type = 'sine'; VARIO.gain.gain.value = 0;
+                VARIO.osc.connect(VARIO.gain); VARIO.gain.connect(audioCtx.destination); VARIO.osc.start();
+            }
+            const now = audioCtx.currentTime, G = VARIO.gain.gain;
+            if (!VARIO.on || !isParagliding) { G.setTargetAtTime(0, now, 0.03); return; }
+            if (vz > 0.25) {
+                if (now >= VARIO.next) {
+                    const period = Math.max(0.14, 0.6 - vz * 0.08), f = 620 + Math.min(vz, 8) * 120;
+                    VARIO.osc.frequency.setValueAtTime(f, now);
+                    G.cancelScheduledValues(now); G.setValueAtTime(0.055, now); G.setValueAtTime(0, now + period * 0.5);
+                    VARIO.next = now + period;
+                }
+            } else if (vz < -2.6) {
+                VARIO.osc.frequency.setTargetAtTime(Math.max(180, 320 + (vz + 2.6) * 30), now, 0.05);
+                G.setTargetAtTime(0.03, now, 0.05); VARIO.next = now;
+            } else G.setTargetAtTime(0, now, 0.03);
+        }
+
+        // =====================================================================
+        // A PIE — primera persona como shooter; para volar hay que subir un cerro
+        // =====================================================================
+        let isWalking = false;
+        const WALK = { vy: 0, phase: 0, hop: 0, onGround: true, step: 0, checkT: 0, launch: null };
+        function enterWalk() {
+            isParagliding = false; isWalking = true;
+            document.getElementById('btn-paraglider').classList.remove('active-btn');
+            document.getElementById('instruments').style.display = 'none';
+            camera.rotation.z = 0; windParticles.forEach(p => p.material.opacity = 0);
+            const g = noise.get(camera.position.x, camera.position.z);
+            camera.position.y = Math.max(g, SEA_LEVEL - 1.3) + 1.7; WALK.vy = 0;
+            cameraRotX = Math.max(-0.4, Math.min(0.2, cameraRotX));
+            if (VIEW.target < 1) VIEW.target = 2;
+            setModeUI('walk');
+        }
+        // ¿se puede despegar aquí? pendiente hacia abajo delante, relieve suficiente y viento no de cola
+        function launchCheck() {
+            const P = camera.position, g0 = noise.get(P.x, P.z);
+            const fx = -Math.sin(cameraRotY), fz = -Math.cos(cameraRotY);
+            const ahead = Math.min(noise.get(P.x + fx * 25, P.z + fz * 25), noise.get(P.x + fx * 50, P.z + fz * 50));
+            const drop = g0 - ahead;
+            let low = g0; for (let i = 0; i < 8; i++) { const a = i * 0.785; low = Math.min(low, noise.get(P.x + Math.cos(a) * 220, P.z + Math.sin(a) * 220)); }
+            const relief = g0 - low, tail = fx * pg.windDir.x + fz * pg.windDir.z;   // >0: el viento te empuja por la espalda
+            if (g0 < SEA_LEVEL + 2) return { ok: false, why: 'Estás en el agua: nada a la orilla y sube un cerro' };
+            if (relief < 35) return { ok: false, why: `Sube más: este punto domina solo ${Math.max(0, relief).toFixed(0)} m (necesitas ~35)` };
+            if (drop < 6) return { ok: false, why: 'Mira hacia la pendiente: delante debe bajar el terreno' };
+            if (tail > 0.25 && pg.windStrength > 3) return { ok: false, why: 'Viento de cola: gira de cara al viento' };
+            return { ok: true, why: `Despegue posible (T) · ladera −${drop.toFixed(0)} m · viento ${tail < -0.3 ? 'de frente' : 'cruzado'}` };
+        }
+        function tryLaunch() {
+            const L = launchCheck();
+            if (!L.ok) { pkToast && pkToast('Aún no se puede despegar', L.why, '#f59e0b'); return; }
+            isWalking = false; toggleParagliderMode(true);
+        }
+        function updateWalk(dt) {
+            const P = camera.position;
+            camera.rotation.order = 'YXZ';
+            camera.rotation.y = cameraRotY; camera.rotation.x = cameraRotX; camera.rotation.z = 0;
+            let mx = 0, mz = 0;
+            if (keys['KeyW']) mz -= 1; if (keys['KeyS']) mz += 1; if (keys['KeyA']) mx -= 1; if (keys['KeyD']) mx += 1;
+            if (JOY.la) { mx += JOY.lx; mz += JOY.ly; }
+            const mag = Math.min(1, Math.hypot(mx, mz));
+            const run = keys['ShiftLeft'] || keys['ShiftRight'] || (JOY.la && Math.hypot(JOY.lx, JOY.ly) > 0.92);
+            const g = noise.get(P.x, P.z), water = g < SEA_LEVEL - 1.2;
+            let speed = (water ? 2.2 : run ? 14 : 5.5) * mag;   // el mundo es grande: paso largo y carrera de travesía
+            if (mag > 0) {
+                const s = Math.sin(cameraRotY), c = Math.cos(cameraRotY);
+                const dx = (mx * c + mz * s) / Math.max(1, Math.hypot(mx, mz)), dz = (-mx * s + mz * c) / Math.max(1, Math.hypot(mx, mz));
+                const nx = P.x + dx * speed * dt, nz = P.z + dz * speed * dt, g2 = noise.get(nx, nz);
+                const grade = (g2 - g) / Math.max(0.001, speed * dt);
+                if (grade > 1.2 && !water) speed = 0;                                   // pared: demasiado empinado (>45°)
+                else {
+                    const k = grade > 0 ? THREE.MathUtils.clamp(1 - grade * 1.3, 0.3, 1) : Math.min(1.25, 1 - grade * 0.3);
+                    P.x += dx * speed * k * dt; P.z += dz * speed * k * dt; speed *= k;
+                }
+            }
+            const gH = noise.get(P.x, P.z), eye = water || gH < SEA_LEVEL - 1.2 ? SEA_LEVEL + 0.35 : gH + 1.7;
+            if ((keys['Space'] || JOY.jump) && WALK.onGround && !water) { WALK.vy = 4.6; WALK.onGround = false; }
+            WALK.vy -= 9.8 * dt; P.y += WALK.vy * dt;
+            if (P.y - eye > 40) { P.y = eye; WALK.vy = 0; }                              // tras viajar por el mapa
+            if (P.y <= eye) { if (!WALK.onGround && WALK.vy < -6) AV.piki && (AV.piki.squish = .2); P.y = eye; WALK.vy = 0; WALK.onGround = true; }
+            // balanceo de la cabeza y pasos
+            if (WALK.onGround && speed > 0.2) {
+                WALK.phase += Math.min(speed, 7) * dt * 1.9;
+                P.y += Math.sin(WALK.phase * 2) * 0.05 * Math.min(1, speed / 3);
+                camera.rotation.z = Math.sin(WALK.phase) * 0.012;
+                const st = Math.floor(WALK.phase / Math.PI); if (st !== WALK.step) { WALK.step = st; footstep(water); }
+                WALK.hop = Math.abs(Math.sin(WALK.phase)) * 0.7;
+            } else WALK.hop *= 0.85;
+            WALK.checkT -= dt;
+            if (WALK.checkT <= 0) {
+                WALK.checkT = 0.4; WALK.launch = launchCheck();
+                const el = document.getElementById('launch-chip');
+                el.textContent = WALK.launch.why; el.classList.toggle('ok', WALK.launch.ok); el.style.display = 'block';
+            }
+        }
+        function footstep(water) {
+            if (!audioCtx || audioCtx.state !== 'running') return;
+            const now = audioCtx.currentTime, len = 0.07;
+            const b = audioCtx.createBuffer(1, Math.floor(audioCtx.sampleRate * len), audioCtx.sampleRate), d = b.getChannelData(0);
+            for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 2);
+            const s = audioCtx.createBufferSource(); s.buffer = b;
+            const f = audioCtx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = water ? 500 : 900 + Math.random() * 500;
+            const gn = audioCtx.createGain(); gn.gain.value = water ? 0.05 : 0.08;
+            s.connect(f); f.connect(gn); gn.connect(audioCtx.destination); s.start(now);
+        }
+        const MODE_HINTS = {
+            free: `<p><strong>Arrastrar:</strong> mirar · <strong>WASD:</strong> moverse · <strong>Z / X:</strong> subir / bajar</p>
+                   <p><strong>T:</strong> parapente · <strong>C:</strong> bajar a caminar</p>`,
+            fly:  `<p><strong>A / D:</strong> virar (alabeo) · <strong>W:</strong> acelerador · <strong>S:</strong> frenos</p>
+                   <p><strong>Q:</strong> orejas (bajar rápido) · <strong>X + A/D:</strong> barrena espiral (bajar muy rápido)</p>
+                   <p><strong>Arrastrar:</strong> cámara en torno a Pikitipu · <strong>Shift + arrastrar:</strong> pilotar</p>
+                   <p><strong>B:</strong> vario sonoro · <strong>T:</strong> soltar la vela</p>
+                   <p class="opacity-70">Gira dentro de las térmicas (bajo los cúmulos) y vuela delante de las laderas de cara al viento. Evita el sotavento.</p>`,
+            walk: `<p><strong>WASD:</strong> caminar · <strong>Shift:</strong> correr · <strong>Espacio:</strong> saltar · <strong>Arrastrar:</strong> mirar</p>
+                   <p><strong>T:</strong> despegar desde una ladera, de cara al viento</p>`
+        };
+        const COMMON_HINT = `<p><strong>Rueda / V:</strong> ave, 3ª o 1ª persona · <strong>5:</strong> águila · <strong>M:</strong> mapa · <strong>E:</strong> editor</p>
+                   <p><strong>H:</strong> acariciar · <strong>N:</strong> groove on/off</p>`;
+        function setModeUI(mode) {
+            document.getElementById('controls-body').innerHTML = MODE_HINTS[mode] + COMMON_HINT;
+            document.getElementById('mode-status').innerText = { free: 'Modo: exploración libre', fly: 'Modo: piloto de parapente', walk: 'Modo: a pie' }[mode];
+            document.getElementById('launch-chip').style.display = mode === 'walk' ? 'block' : 'none';
+            document.body.dataset.mode = mode;
+            const fb = document.getElementById('mb-fly'); if (fb) fb.textContent = { free: 'Volar', fly: 'Soltar', walk: 'Despegar' }[mode];
+            const ub = document.getElementById('mb-up'); if (ub) ub.textContent = mode === 'walk' ? 'Saltar' : 'Subir';
+            const mi = document.getElementById('mob-inst'); if (mi) mi.style.display = mode === 'fly' ? 'block' : 'none';
+        }
+
+        // =====================================================================
+        // CELULAR — joypads, gestos, interfaz mínima que se oculta sola
+        // =====================================================================
+        const IS_MOBILE = (window.matchMedia && matchMedia('(pointer: coarse)').matches) || ('ontouchstart' in window && Math.min(screen.width, screen.height) < 900);
+        const JOY = { lx: 0, ly: 0, rx: 0, ry: 0, la: false, ra: false, jump: false, ears: false, spiral: false };
+        function joyBind(zoneId, side) {
+            const zone = document.getElementById(zoneId), knob = zone.querySelector('.joy-knob'), base = zone.querySelector('.joy-base');
+            let id = null, cx = 0, cy = 0; const R = 52;
+            const set = (x, y) => {
+                const dx = x - cx, dy = y - cy, d = Math.hypot(dx, dy), k = d > R ? R / d : 1;
+                knob.style.transform = `translate(${dx * k}px, ${dy * k}px)`;
+                JOY[side + 'x'] = dx * k / R; JOY[side + 'y'] = dy * k / R;
+            };
+            zone.addEventListener('touchstart', e => {
+                e.preventDefault(); uiWake();
+                if (id !== null) return;
+                const tch = e.changedTouches[0]; id = tch.identifier;
+                const r = zone.getBoundingClientRect();
+                cx = tch.clientX; cy = tch.clientY;
+                base.style.left = (cx - r.left) + 'px'; base.style.top = (cy - r.top) + 'px';
+                zone.classList.add('on'); JOY[side + 'a'] = true; set(cx, cy);
+            }, { passive: false });
+            zone.addEventListener('touchmove', e => {
+                e.preventDefault();
+                for (const tch of e.changedTouches) if (tch.identifier === id) set(tch.clientX, tch.clientY);
+            }, { passive: false });
+            const end = e => {
+                for (const tch of e.changedTouches) if (tch.identifier === id) {
+                    id = null; JOY[side + 'a'] = false; JOY[side + 'x'] = JOY[side + 'y'] = 0;
+                    knob.style.transform = 'translate(0,0)'; zone.classList.remove('on');
+                    base.style.left = ''; base.style.top = '';
+                }
+            };
+            zone.addEventListener('touchend', end); zone.addEventListener('touchcancel', end);
+        }
+        // cada cuadro: la palanca derecha mira / orbita / acerca según el modo
+        function joyFrame(dt) {
+            if (JOY.la && !isParagliding && !isWalking && !(VIEW.birdness > 0.5 && !VIEW.eagle)) {
+                const sp = (keys['ShiftLeft'] ? 300 : 100) * dt * Math.min(1, Math.hypot(JOY.lx, JOY.ly) * 1.2);
+                const f = new THREE.Vector3(JOY.lx, 0, JOY.ly).applyQuaternion(camera.quaternion); f.y = 0;
+                if (f.lengthSq() > 1e-6) camera.position.addScaledVector(f.normalize(), sp);
+            }
+            if (JOY.la && VIEW.birdness > 0.5 && !VIEW.eagle && !isParagliding) {
+                const U = VIEW.upDir, sp = VIEW.fitH * 0.5 * dt;
+                camera.position.x += (-U.z * JOY.lx - U.x * JOY.ly) * sp; camera.position.z += (U.x * JOY.lx - U.z * JOY.ly) * sp; VIEW.panned = true;
+            }
+            if (!JOY.ra) return;
+            const rx = JOY.rx * Math.abs(JOY.rx), ry = JOY.ry * Math.abs(JOY.ry);   // curva suave: precisión al centro
+            if (VIEW.eagle) { VIEW.eYaw -= rx * 2.2 * dt; VIEW.ePitch = THREE.MathUtils.clamp(VIEW.ePitch - ry * 1.4 * dt, -1.53, -0.45); }
+            else if (VIEW.birdness > 0.5) VIEW.target = THREE.MathUtils.clamp(VIEW.target - ry * 0.9 * dt, 0, 2);
+            else if (isParagliding) { VIEW.oYaw -= rx * 2.4 * dt; VIEW.oPitch = THREE.MathUtils.clamp(VIEW.oPitch - ry * 1.6 * dt, -0.6, 1.1); }
+            else { cameraRotY -= rx * 2.4 * dt; cameraRotX = THREE.MathUtils.clamp(cameraRotX - ry * 1.7 * dt, -1.5, 1.5); }
+        }
+        // un dedo en la pantalla = arrastrar con el mouse; dos dedos = pellizco (zoom de vista)
+        function touchCanvas(cv) {
+            let pinch = null;
+            cv.addEventListener('touchstart', e => {
+                e.preventDefault(); uiWake();
+                if (e.touches.length === 1) { isMouseDown = true; lastMousePos = { x: e.touches[0].clientX, y: e.touches[0].clientY }; petPointerDown(cv, e.touches[0].clientX, e.touches[0].clientY); }
+                else petPointerUp();
+                if (e.touches.length === 2) { isMouseDown = false; pinch = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); }
+            }, { passive: false });
+            cv.addEventListener('touchmove', e => {
+                e.preventDefault();
+                if (e.touches.length === 1 && isMouseDown) onMouseMove({ clientX: e.touches[0].clientX, clientY: e.touches[0].clientY });
+                if (e.touches.length === 2 && pinch) {
+                    const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+                    const k = (d - pinch) * 0.004; pinch = d;
+                    if (VIEW.eagle) VIEW.eR = THREE.MathUtils.clamp(VIEW.eR * (1 - k), 120, 2600);
+                    else VIEW.target = THREE.MathUtils.clamp(VIEW.target + k, 0, 2);
+                }
+            }, { passive: false });
+            cv.addEventListener('touchend', e => { if (e.touches.length === 0) { isMouseDown = false; pinch = null; petPointerUp(); } });
+        }
+        // interfaz mínima: tras 5 s sin tocar, se desvanece; un toque la trae de vuelta
+        let uiTimer = null;
+        function uiWake() {
+            document.body.classList.remove('ui-idle');
+            clearTimeout(uiTimer);
+            uiTimer = setTimeout(() => {
+                const busy = ['settings-panel', 'music-panel', 'radio-panel', 'terrain-editor', 'map2d'].some(id => { const el = document.getElementById(id); return el && getComputedStyle(el).display !== 'none'; });
+                if (busy) uiWake(); else document.body.classList.add('ui-idle');
+            }, 5000);
+        }
+        function holdBtn(id, on, off) {
+            const el = document.getElementById(id);
+            el.addEventListener('touchstart', e => { e.preventDefault(); uiWake(); on(); }, { passive: false });
+            el.addEventListener('touchend', e => { e.preventDefault(); off && off(); });
+            el.addEventListener('mousedown', on); el.addEventListener('mouseup', () => off && off());
+        }
+        function desktopIdleInit() {
+            if (IS_MOBILE) return;
+            // el mouse quieto o arrastrando la cámara no cuenta; moverlo sin arrastrar, la rueda o un clic, sí
+            window.addEventListener('mousemove', () => { if (!isMouseDown) uiWake(); }, { passive: true });
+            ['wheel', 'click'].forEach(ev => window.addEventListener(ev, uiWake, { passive: true }));
+            window.addEventListener('keydown', e => { if (e.code === 'Escape' || e.code === 'Tab') uiWake(); });
+            uiWake();
+        }
+        function mobileInit() {
+            desktopIdleInit();
+            if (!IS_MOBILE) return;
+            document.body.classList.add('movil');
+            joyBind('joy-left', 'l'); joyBind('joy-right', 'r');
+            touchCanvas(renderer.domElement);
+            holdBtn('mb-up', () => { if (isWalking) JOY.jump = true; else keys['KeyZ'] = true; }, () => { JOY.jump = false; keys['KeyZ'] = false; });
+            holdBtn('mb-down', () => { keys['KeyX'] = true; }, () => { keys['KeyX'] = false; });
+            holdBtn('mb-fly', () => modeKeyT(), null);
+            holdBtn('mb-walk', () => modeKeyC(), null);
+            holdBtn('mb-view', () => { VIEW.eagle = false; VIEW.target = VIEW.target < 0.5 ? 1 : VIEW.target < 1.5 ? 2 : 0; }, null);
+            holdBtn('mb-pet', () => { PK.petKey = true; }, () => { PK.petKey = false; });
+            holdBtn('mb-ears', () => { JOY.ears = true; }, () => { JOY.ears = false; });
+            holdBtn('mb-spiral', () => { JOY.spiral = true; }, () => { JOY.spiral = false; });
+            const menu = document.getElementById('btn-menu');
+            menu.addEventListener('click', e => { e.stopPropagation(); document.querySelector('.top-buttons').classList.toggle('open'); uiWake(); });
+            document.getElementById('btn-fs').addEventListener('click', e => {
+                e.stopPropagation(); const d = document.documentElement;
+                if (!document.fullscreenElement) (d.requestFullscreen || d.webkitRequestFullscreen || (() => {})).call(d); else document.exitFullscreen && document.exitFullscreen();
+            });
+
+            ['touchstart', 'pointerdown'].forEach(ev => window.addEventListener(ev, uiWake, { passive: true }));
+            uiWake();
+        }
+        // T: parapente (desde exploración libre en el aire; a pie, solo desde una ladera)
+        function modeKeyT() {
+            if (isWalking) { tryLaunch(); return; }
+            toggleParagliderMode();
+        }
+        // C: bajar a caminar (desde exploración libre)
+        function modeKeyC() {
+            if (!isParagliding && !isWalking) { enterWalk(); pkToast && pkToast('A pie', 'Para volar: sube a un cerro, mira hacia la pendiente y presiona T.', '#63f5a1'); }
+        }
+
+        // =====================================================================
+        // CORRIENTES VISIBLES — trazos verticales finos: rojo sube, azul baja
+        // ---------------------------------------------------------------------
+        // Como en las cartas de vuelo a vela: una rejilla de trazos alrededor del piloto
+        // muestrea el mismo aire que siente el ala (ladera, rotor, térmicas, descendencias).
+        // Cada trazo se desliza en la dirección de la corriente; su largo y brillo dicen
+        // su fuerza. Se recalcula de a poco (unos cientos de puntos por cuadro).
+        // =====================================================================
+        const CUR = {
+            on: (() => { try { return localStorage.getItem('aerocosmos.corrientes') !== 'off'; } catch (_) { return true; } })(),
+            N: IS_MOBILE ? 11 : 15, step: 70, layers: IS_MOBILE ? [-90, 0, 90, 180] : [-140, -60, 20, 100, 180],
+            mesh: null, w: null, base: null, ph: null, cursor: 0, gx: 1e9, gz: 1e9, gy: 1e9
+        };
+        function curInit() {
+            const n = CUR.N * CUR.N * CUR.layers.length;
+            const g = new THREE.BufferGeometry();
+            g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 6), 3));
+            g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(n * 6), 3));
+            g.setAttribute('aA', new THREE.BufferAttribute(new Float32Array(n * 2), 1));
+            // mezcla normal + transparencia por vértice: se lee igual sobre cielo claro, arena o agua
+            const m = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, fog: false });
+            m.onBeforeCompile = (sh) => {
+                worldCurvatureShader.onBeforeCompile(sh);
+                sh.vertexShader = 'attribute float aA;\nvarying float vA;\n' + sh.vertexShader.replace('void main() {', 'void main() {\n vA = aA;');
+                sh.fragmentShader = 'varying float vA;\n' + sh.fragmentShader.replace('#include <dithering_fragment>', '#include <dithering_fragment>\n gl_FragColor.a *= vA;');
+            };
+            CUR.mesh = new THREE.LineSegments(g, m); CUR.mesh.frustumCulled = false; scene.add(CUR.mesh);
+            CUR.w = new Float32Array(n); CUR.base = new Float32Array(n * 3); CUR.ph = new Float32Array(n);
+            for (let i = 0; i < n; i++) CUR.ph[i] = Math.random() * 40;
+        }
+        function curSet(on) {
+            CUR.on = on; try { localStorage.setItem('aerocosmos.corrientes', on ? 'on' : 'off'); } catch (_) {}
+            if (CUR.mesh) CUR.mesh.visible = on;
+        }
+        function curFrame(dt, P, adapt) {
+            if (!CUR.mesh) return;
+            CUR.mesh.visible = CUR.on && adapt < 0.5;
+            if (!CUR.mesh.visible) return;
+            const N = CUR.N, L = CUR.layers.length, n = N * N * L, half = (N - 1) / 2, t = performance.now() / 1000;
+            const gx = Math.round(P.x / CUR.step) * CUR.step, gz = Math.round(P.z / CUR.step) * CUR.step, gy = Math.round(P.y / 40) * 40;
+            if (gx !== CUR.gx || gz !== CUR.gz || gy !== CUR.gy) {
+                CUR.gx = gx; CUR.gz = gz; CUR.gy = gy;
+                for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) for (let l = 0; l < L; l++) {
+                    const k = (i * N + j) * L + l, hx = Math.sin((gx / CUR.step + i) * 12.9898 + (gz / CUR.step + j) * 78.233) * 43758.5;
+                    const jit = (hx - Math.floor(hx)) - 0.5;
+                    CUR.base[k * 3] = gx + (i - half) * CUR.step + jit * CUR.step * 0.7;
+                    CUR.base[k * 3 + 1] = gy + CUR.layers[l];
+                    CUR.base[k * 3 + 2] = gz + (j - half) * CUR.step - jit * CUR.step * 0.5;
+                }
+            }
+            // muestreo progresivo del aire
+            const per = Math.ceil(n / (IS_MOBILE ? 10 : 6));
+            for (let s = 0; s < per; s++) {
+                const k = CUR.cursor; CUR.cursor = (CUR.cursor + 1) % n;
+                const x = CUR.base[k * 3], z = CUR.base[k * 3 + 2];
+                const g = Math.max(SEA_LEVEL, noise.get(x, z));
+                // las capas que quedarían bajo tierra se pegan al relieve: ahí vive la ascendencia de ladera
+                let y = CUR.gy + CUR.layers[k % L];
+                if (y < g + 15) y = g + 15 + (k % L) * 28;
+                CUR.base[k * 3 + 1] = y;
+                CUR.w[k] = airAt(x, y, z, g, t, true).w;
+            }
+            const pos = CUR.mesh.geometry.attributes.position.array, col = CUR.mesh.geometry.attributes.color.array, al = CUR.mesh.geometry.attributes.aA.array;
+            const R = (half + 0.5) * CUR.step, wx = pg.windDir.x, wz = pg.windDir.z;
+            for (let k = 0; k < n; k++) {
+                const w = CUR.w[k], aw = Math.abs(w), o = k * 6;
+                const x = CUR.base[k * 3], y0 = CUR.base[k * 3 + 1], z = CUR.base[k * 3 + 2];
+                const fade = Math.max(0, 1 - Math.hypot(x - P.x, z - P.z) / R) * Math.max(0, 1 - Math.abs(y0 - P.y) / 380);
+                const I = aw < 0.35 ? 0 : (0.45 + 0.5 * Math.min(1, (aw - 0.35) / 2.5)) * Math.min(1, fade * 1.6);
+                const len = 14 + Math.min(aw, 6) * 9;
+                // el trazo viaja en el sentido de la corriente (sube o baja) y se inclina un poco con el viento
+                const off = ((CUR.ph[k] + t * w * 4) % 40 + 40) % 40 - 20;
+                const yc = y0 + off, lean = len * 0.25;
+                pos[o] = x - wx * lean * 0.5; pos[o + 1] = yc - len / 2; pos[o + 2] = z - wz * lean * 0.5;
+                pos[o + 3] = x + wx * lean * 0.5; pos[o + 4] = yc + len / 2; pos[o + 5] = z + wz * lean * 0.5;
+                const [r, gg, b] = w > 0 ? [0.86, 0.13, 0.11] : [0.11, 0.33, 0.92];
+                col[o] = col[o + 3] = r; col[o + 1] = col[o + 4] = gg; col[o + 2] = col[o + 5] = b;
+                // la punta (en el sentido del movimiento) es más opaca: se lee la dirección sin flechas
+                const tipUp = w > 0;
+                al[k * 2] = I * (tipUp ? 0.2 : 1); al[k * 2 + 1] = I * (tipUp ? 1 : 0.2);
+            }
+            CUR.mesh.geometry.attributes.position.needsUpdate = true;
+            CUR.mesh.geometry.attributes.color.needsUpdate = true;
+            CUR.mesh.geometry.attributes.aA.needsUpdate = true;
+        }
+
         let frameCounter = 0;
         function animate() {
             requestAnimationFrame(animate);
@@ -4199,10 +4853,15 @@ void main(){
 
             updateAtmosphere(dt);
             updateRadioSpectrum(dt);
+            joyFrame(dt);
 
             if (isParagliding) {
                 updateParaglider(dt);
+            } else if (isWalking) {
+                updateWalk(dt);
+                if (!isParagliding) airUpdate(dt, camera.position);   // el cielo sigue vivo (cúmulos, térmicas) mientras caminas
             } else {
+                airUpdate(dt, camera.position);
                 const speed = (keys['ShiftLeft'] ? 300 : 100) * dt;
                 camera.rotation.y = cameraRotY;
                 camera.rotation.x = cameraRotX;
